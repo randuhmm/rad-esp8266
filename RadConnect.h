@@ -60,10 +60,10 @@ class RadThing {
     DeviceType getType() { return _type; };
     char *getName() { return _name; };
 
-    virtual void addCallback(CommandType, SET_FP);
-    virtual void addCallback(CommandType, GET_FP);
-    virtual void command(uint8_t, uint8_t, uint8_t*);
-
+    virtual void callback(CommandType, SET_FP);
+    virtual void callback(CommandType, GET_FP);
+    virtual void command(CommandType, uint8_t, uint8_t*);
+    virtual void event(EventType, uint8_t, uint8_t*);
 };
 
 
@@ -76,17 +76,15 @@ class RadConnect
     // void receiveMessages(void);
 
     // DeviceInfo *_devices[MAX_DEVICES];
+    bool _started;
     vector<RadThing> _things;
 
   public:
 
-    void setup(void);
     void add(DeviceType type, char *name);
 
-    // bool begin(void);
-    // void update(void);
-    // void printInfo(void);
-    // uint8_t getDeviceAddress(uint8_t device_id);
+    bool begin(void);
+    void update(void);
 
 };
 
@@ -106,10 +104,11 @@ class SwitchBinaryThing : public RadThing {
       // pass? noop?
     }
 
-    void addCallback(CommandType command_type, SET_FP func);
-    void addCallback(CommandType command_type, GET_FP func);
+    void callback(CommandType command_type, SET_FP func);
+    void callback(CommandType command_type, GET_FP func);
 
     void command(CommandType command_type, uint8_t payload_length, uint8_t *payload);
+    void event(EventType event_type, uint8_t payload_length, uint8_t *payload);
 
 };
 

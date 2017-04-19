@@ -68,8 +68,9 @@ void setup() {
   digitalWrite(BUILTIN_LED, LOW);
 
   // Create the devices here
-  switch_1 = radConnect.add(BINARY_SWITCH, "switch_1");
-  switch_1.addCallback(SET, switch_1_set);
+  switch_1 = radConnect.add(BinarySwitch, "switch_1");
+  switch_1.callback(Set, switch_1_set);
+  radConnect.begin();
 
 }
 
