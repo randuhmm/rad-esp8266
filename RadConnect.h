@@ -16,6 +16,16 @@
 #define __RAD_CONNECT_H__
 
 
+#include <ESP8266SSDP.h>
+#include <ESP8266WebServer.h>
+
+#define MAX_THINGS 8
+
+#define RAD_HTTP_PORT 8080
+#define RAD_DEVICE_TYPE "urn:rad:esp8266:1"
+#define RAD_MODEL_NAME "RAD-ESP8266"
+#define RAD_MODEL_NUM "9001"
+
 // Device Types
 enum DeviceType {
     SwitchBinary     = 1,
@@ -41,9 +51,31 @@ enum EventType {
     State = 1
 };
 
+typedef unsigned char       uint8_t;
 
 typedef void (* SET_FP)(uint8_t);
 typedef uint8_t (* GET_FP)(void);
+
+
+static const char* _ssdp_schema_template =
+  "HTTP/1.1 200 OK\r\n"
+  "Content-Type: application/json\r\n"
+  "Connection: close\r\n"
+  "Access-Control-Allow-Origin: *\r\n"
+  "\r\n"
+  "{\r\n"
+  "    \"device\": {\r\n"
+  "        \"deviceName\": \"%s\",\r\n"
+  "        \"deviceType\": \"" RAD_DEVICE_TYPE "\",\r\n"
+  "        \"modelDescription\": \"Rad ESP8266 WiFi Module for IoT Integration\",\r\n"
+  "        \"modelName\": \"" RAD_MODEL_NAME "\",\r\n"
+  "        \"serialNum\": \"\",\r\n"
+  "        \"UDN\": \"uuid:%s\",\r\n"
+  "        \"children\": [\r\n"
+  "        ]\r\n"
+  "    }\r\n"
+  "}\r\n"
+  "\r\n";
 
 
 class RadThing {
@@ -51,19 +83,22 @@ class RadThing {
   private:
 
     DeviceType _type;
-    char *name;
+    char *_name;
+
+    SET_FP _set_callback;
+    GET_FP _get_callback;
 
   public:
 
-    RadThing(DeviceType type, char *name) { _type = type; _name = name };
+    RadThing(DeviceType type, char *name) { _type = type; _name = name; };
 
     DeviceType getType() { return _type; };
     char *getName() { return _name; };
 
-    virtual void callback(CommandType, SET_FP);
-    virtual void callback(CommandType, GET_FP);
-    virtual void command(CommandType, uint8_t, uint8_t*);
-    virtual void event(EventType, uint8_t, uint8_t*);
+    void callback(CommandType command_type, SET_FP func) { _set_callback = func; };
+    void callback(CommandType command_type, GET_FP func) { _get_callback = func; };
+    void command(CommandType command_type, uint8_t payload_length, uint8_t *payload);
+    void event(EventType event_type, uint8_t payload_length, uint8_t *payload);
 };
 
 
@@ -72,43 +107,23 @@ class RadConnect
 
   private:
 
-    // void discover(void);
-    // void receiveMessages(void);
-
-    // DeviceInfo *_devices[MAX_DEVICES];
+    char *_name;
     bool _started;
-    vector<RadThing> _things;
+    uint8_t _count;
+    RadThing *_things[MAX_THINGS];
+    char _uuid[SSDP_UUID_SIZE];
+    ESP8266WebServer _http;
+
+    void handleDevice(void);
 
   public:
 
-    void add(DeviceType type, char *name);
+    RadConnect(char *name);
+
+    void add(RadThing *thing);
 
     bool begin(void);
     void update(void);
-
-};
-
-
-class SwitchBinaryThing : public RadThing {
-
-  private:
-
-    SET_FP _set_callback;
-    GET_FP _get_callback;
-
-  public:
-
-    SwitchBinaryThing()
-    : RadThing(DeviceType type, char *name)
-    {
-      // pass? noop?
-    }
-
-    void callback(CommandType command_type, SET_FP func);
-    void callback(CommandType command_type, GET_FP func);
-
-    void command(CommandType command_type, uint8_t payload_length, uint8_t *payload);
-    void event(EventType event_type, uint8_t payload_length, uint8_t *payload);
 
 };
 
