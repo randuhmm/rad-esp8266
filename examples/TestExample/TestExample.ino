@@ -15,17 +15,34 @@ Ticker ticker;
 RadConnect radConnect("MyESP");
 RadThing switch_1(SwitchBinary, "switch_1");
 
+#define SWITCH_1 2
 
+bool switch_one_state = false;
 void switch_1_set(uint8_t value) {
   Serial.print("switch_1: ");
   Serial.println(value);
+  if(value == 255) {
+    digitalWrite(SWITCH_1, LOW);
+    switch_one_state = true;
+  } else {
+    digitalWrite(SWITCH_1, HIGH);
+    switch_one_state = false;
+  }
+}
+
+uint8_t switch_1_get(void) {
+  if(switch_one_state) {
+    return 255;
+  } else {
+    return 0;
+  }
 }
 
 
 void tick() {
   //toggle state
-  int state = digitalRead(BUILTIN_LED);  // get the current state of GPIO1 pin
-  digitalWrite(BUILTIN_LED, !state);     // set pin to the opposite state
+//  int state = digitalRead(BUILTIN_LED);  // get the current state of GPIO1 pin
+//  digitalWrite(BUILTIN_LED, !state);     // set pin to the opposite state
 }
 
 
@@ -73,12 +90,17 @@ void setup_ota() {
 
 
 void setup() {
+  delay(1000);
   Serial.begin(115200);
+  Serial.print("setup");
+
+  pinMode(SWITCH_1, OUTPUT);
+  digitalWrite(SWITCH_1, HIGH);
 
   //set led pin as output
-  pinMode(BUILTIN_LED, OUTPUT);
-  // start ticker with 0.5 because we start in AP mode and try to connect
-  ticker.attach(0.6, tick);
+//  pinMode(BUILTIN_LED, OUTPUT);
+//  // start ticker with 0.5 because we start in AP mode and try to connect
+//  ticker.attach(0.6, tick);
 
   WiFiManager wifiManager;
   //wifiManager.reset();
@@ -109,6 +131,7 @@ void setup() {
   // Create the devices here
   radConnect.add(&switch_1);
   switch_1.callback(Set, switch_1_set);
+  switch_1.callback(Get, switch_1_get);
   radConnect.begin();
 
 }
