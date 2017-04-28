@@ -1,6 +1,14 @@
 #include "RadConnect.h"
 
 
+static const char* HEADERS[] = {
+  HEADER_HOST,
+  HEADER_CALLBACK,
+  HEADER_NT,
+  HEADER_TIMEOUT
+};
+
+
 RadConnect::RadConnect(const char *name) {
   _name = name;
   _index = 0;
@@ -11,6 +19,7 @@ RadConnect::RadConnect(const char *name) {
 void RadConnect::add(RadThing *thing) {
   if(_index < MAX_THINGS) {
     _things[_index] = thing;
+    thing->setId(_index);
     _index += 1;
   }
 }
@@ -24,6 +33,12 @@ bool RadConnect::begin(void) {
   (uint16_t) ((chipId >> 16) & 0xff),
   (uint16_t) ((chipId >>  8) & 0xff),
   (uint16_t)   chipId        & 0xff  );
+
+  Serial.println("ChipId: ");
+  Serial.println(chipId);
+  Serial.println((uint16_t) ((chipId >> 16) & 0xff));
+  Serial.println((uint16_t) ((chipId >>  8) & 0xff));
+  Serial.println((uint16_t)   chipId        & 0xff);
 
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
@@ -45,13 +60,13 @@ bool RadConnect::begin(void) {
   }
   things.printTo(_thingsString, sizeof(_thingsString));
 
-
   // SSDP
   // Serial.println("Starting http...");
   //_http.on("/", std::bind(&RadConnect::handleRoot, this));
   _http.on("/" RAD_INFO_PATH, std::bind(&RadConnect::handleInfo, this));
   _http.on("/" RAD_COMMAND_PATH, std::bind(&RadConnect::handleCommand, this));
-  _http.on("/" RAD_EVENT_PATH, std::bind(&RadConnect::handleEvent, this));
+  _http.on("/" RAD_SUBSCRIBE_PATH, std::bind(&RadConnect::handleSubscribe, this));
+  _http.collectHeaders(HEADERS, 4);
   _http.begin();
   SSDP.setDeviceType(RAD_DEVICE_TYPE);
   SSDP.setName(_name);
@@ -71,6 +86,18 @@ bool RadConnect::begin(void) {
 void RadConnect::update(void) {
   // loop
   _http.handleClient();
+}
+
+
+RadThing *RadConnect::getThing(const char *name) {
+  RadThing* thing = NULL;
+  for(uint8_t i = 0; i < _index; i++) {
+    if(strcmp(_things[i]->getName(), name) == 0) {
+      thing = _things[i];
+      break;
+    }
+  }
+  return thing;
 }
 
 
@@ -100,10 +127,11 @@ void RadConnect::handleCommand(void) {
       } else if(execute(_http.arg("name").c_str(), Set, atoi(_http.arg("value").c_str()))) {
         code = 200;
         message = "{\"result\": true}";
+      } else {
+        code = 500;
       }
     } else if(_http.arg("type") == "get") {
       uint8_t value = execute(_http.arg("name").c_str(), Get);
-      code = 200;
       char buff[100];
       snprintf(buff, sizeof(buff), "{\"value\": %d}", value);
       message = buff;
@@ -116,13 +144,51 @@ void RadConnect::handleCommand(void) {
 }
 
 
-void RadConnect::handleEvent(void) {
-  Serial.println("/event");
-  _http.send(200, "application/json", "true");
+void RadConnect::handleSubscribe(void) {
+  Serial.println("/subscribe");
+
+  String test = "Number of args received: ";
+  test += _http.args() + "\n";
+  for (int i = 0; i < _http.args(); i++) {
+    test += "Arg nº" + (String)i + " –> ";
+    test += _http.argName(i) + ": ";
+    test += _http.arg(i) + "\n";
+  }
+  test += "\nNumber of headers received: ";
+  test += (String)_http.headers() + "\n";
+  for (int i = 0; i < _http.headers(); i++) {
+    test += "Header nº" + (String)i + " –> ";
+    test += _http.headerName(i) + ": ";
+    test += _http.header(i) + "\n";
+  }
+  Serial.println(test);
+
+
+  int code = 200;
+  String message = "";
+  if(_http.arg("name") == "" || _http.arg("type") == "") {
+    code = 400;
+    message = "{\"error\": \"Missing required parameter(s): 'name' and/or 'type'\"}";
+  } else {
+    RadThing* thing = getThing(_http.arg("name").c_str());
+    if(thing == NULL) {
+      code = 404;
+      message = "{\"error\": \"Unable to find device.\"}";
+    } else if(_http.arg("type") == "state") {
+      Subscription *subscription = thing->subscribe(State, _http.header(HEADER_CALLBACK).c_str());
+      char sid[100];
+      snprintf(sid, sizeof(sid), "uuid:%s", subscription->getSid());
+      _http.sendHeader("SID", sid);
+      _http.sendHeader(HEADER_TIMEOUT, _http.header(HEADER_TIMEOUT));
+    } else {
+      code = 400;
+      message = "{\"error\": \"Unsuported event type.\"}";
+    }
+  }
+
+  //_http.sendHeader(HEADER_TIMEOUT, _http.header(HEADER_TIMEOUT));
+  _http.send(code, "application/json", message);
 }
-
-
-
 
 
 uint8_t RadConnect::execute(const char* name, CommandType command_type) {
@@ -147,12 +213,12 @@ bool RadConnect::execute(const char* name, CommandType command_type, uint8_t val
 }
 
 
-
 RadThing::RadThing(DeviceType type, const char *name) {
   _type = type;
   _name = name;
   _set_callback = NULL;
   _get_callback = NULL;
+  _subscription_count = 0;
 }
 
 
@@ -194,3 +260,78 @@ bool RadThing::execute(CommandType command_type, uint8_t value) {
   return result;
 }
 
+
+void RadThing::send(EventType event_type) {
+
+}
+
+
+void RadThing::send(EventType event_type, uint8_t value) {
+  Subscription *s;
+  String message = "";
+  switch(event_type) {
+    case State:
+      switch(_type) {
+        case SwitchBinary:
+        char buff[100];
+        snprintf(buff, sizeof(buff), "{\"type\": \"state\", \"value\": %d}", value);
+        message = buff;
+      }
+      break;
+  }
+
+  for(int i = 0; i < _subscriptions.size(); i++) {
+    s = _subscriptions.get(i);
+    if(s->getType() == event_type) {
+      Serial.print("Subscription Found: ");
+      Serial.println(s->getCallback());
+
+      HTTPClient http;
+      http.begin(s->getUrl());
+      http.addHeader("SID", s->getSid());
+      http.addHeader("RAD-NAME", _name);
+      http.addHeader("Content-Type", "application/json");
+      int httpCode = http.sendRequest("NOTIFY", message);
+      if(httpCode > 0) {
+        if(httpCode == HTTP_CODE_OK) {
+            String payload = http.getString();
+            Serial.println(payload);
+        }
+      } else {
+        Serial.printf("[HTTP] GET... failed, error: %s\n", http.errorToString(httpCode).c_str());
+      }
+      http.end();
+    }
+  }
+}
+
+
+Subscription *RadThing::subscribe(EventType type, const char *callback, int timeout) {
+
+  Subscription *s;
+  for(int i = 0; i < _subscriptions.size(); i++) {
+    s = _subscriptions.get(i);
+    if(s->getType() == type && strcmp(s->getCallback(), callback) == 0) {
+      Serial.print("Deleting Subscription: ");
+      Serial.println(s->getSid());
+      _subscriptions.remove(i);
+      delete s;
+      i -= 1;
+    }
+  }
+
+  _subscription_count += 1;
+  char sid[SSDP_UUID_SIZE];
+  uint32_t chipId = ESP.getChipId();
+  sprintf(sid, "38323636-4558-4dda-9188-cd%02x%02x%02x%02x%02x",
+  (uint16_t) ((chipId >> 16) & 0xff),
+  (uint16_t) ((chipId >>  8) & 0xff),
+  (uint16_t)   chipId        & 0xff ,
+              _id,
+              _subscription_count);
+  Subscription *subscription = new Subscription(sid, type, callback, timeout);
+  _subscriptions.add(subscription);
+  Serial.print("SID: ");
+  Serial.println(sid);
+  return subscription;
+}

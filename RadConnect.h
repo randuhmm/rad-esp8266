@@ -16,10 +16,13 @@
 #define __RAD_CONNECT_H__
 
 #include <ArduinoJson.h>
+#include <ESP8266HTTPClient.h>
 #include <ESP8266SSDP.h>
 #include <ESP8266WebServer.h>
+#include <LinkedList.h>
 
 #define MAX_THINGS 8
+#define MAX_CALLBACK_SIZE 255
 
 #define RAD_HTTP_PORT 8080
 #define RAD_DEVICE_TYPE "urn:rad:device:esp8266:1"
@@ -29,7 +32,14 @@
 
 #define RAD_INFO_PATH "info"
 #define RAD_COMMAND_PATH "command"
-#define RAD_EVENT_PATH "event"
+#define RAD_SUBSCRIBE_PATH "subscribe"
+
+
+#define HEADER_HOST      "HOST"
+#define HEADER_CALLBACK  "CALLBACK"
+#define HEADER_NT        "NT"
+#define HEADER_TIMEOUT   "TIMEOUT"
+
 
 // Device Types
 enum DeviceType {
@@ -53,7 +63,8 @@ enum CommandType {
 
 // Event Types
 enum EventType {
-    State = 1
+    Start = 1,
+    State = 2
 };
 
 typedef unsigned char       uint8_t;
@@ -80,15 +91,47 @@ static const char* _ssdp_schema_template =
   "\r\n";
 
 
+class Subscription {
+
+  private:
+
+    char _sid[SSDP_UUID_SIZE];
+    char _callback[MAX_CALLBACK_SIZE];
+    char _url[MAX_CALLBACK_SIZE];
+    EventType _type;
+    int _timeout;
+
+  public:
+
+    Subscription(const char *sid, EventType type, const char *callback, int timeout=0) {
+      _type = type;
+      _timeout = timeout;
+      strncpy(_sid, sid, sizeof(_sid));
+      strncpy(_callback, callback, sizeof(_callback));
+      memset(_url, 0, sizeof(_url));
+      strncpy(_url, &callback[1], strlen(callback) - 2);
+    };
+    EventType getType() { return _type; };
+    char *getSid() { return _sid; };
+    char *getCallback() { return _callback; };
+    char *getUrl() { return _url; };
+
+};
+
+
 class RadThing {
 
   private:
 
     DeviceType _type;
     const char *_name;
+    uint8_t _id;
+    uint8_t _subscription_count;
 
     SET_FP _set_callback;
     GET_FP _get_callback;
+
+    LinkedList<Subscription*> _subscriptions;
 
   public:
 
@@ -96,12 +139,18 @@ class RadThing {
 
     DeviceType getType() { return _type; };
     const char *getName() { return _name; };
+    void setId(uint8_t id) { _id = id; };
 
     void callback(CommandType command_type, SET_FP func) { _set_callback = func; };
     void callback(CommandType command_type, GET_FP func) { _get_callback = func; };
 
     uint8_t execute(CommandType command_type);
     bool execute(CommandType command_type, uint8_t value);
+
+    void send(EventType event_type);
+    void send(EventType event_type, uint8_t value);
+
+    Subscription *subscribe(EventType type, const char *callback, int timeout=0);
 };
 
 
@@ -122,7 +171,7 @@ class RadConnect
 
     void handleInfo(void);
     void handleCommand(void);
-    void handleEvent(void);
+    void handleSubscribe(void);
 
     uint8_t execute(const char* name, CommandType command_type);
     bool execute(const char* name, CommandType command_type, uint8_t value);
@@ -135,6 +184,8 @@ class RadConnect
 
     bool begin(void);
     void update(void);
+
+    RadThing *getThing(const char *name);
 
 };
 

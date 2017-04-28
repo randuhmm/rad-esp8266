@@ -1,46 +1,67 @@
 #include <ArduinoOTA.h>
 #include <DNSServer.h>
+#include <ESP8266HTTPClient.h>
 #include <ESP8266mDNS.h>
 #include <ESP8266SSDP.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266WiFi.h>
+#include <LinkedList.h>
 #include <RadConnect.h>
+#include <Ticker.h>
 #include <WiFiManager.h>
 #include <WiFiUdp.h>
 
 //for LED status
-#include <Ticker.h>
 Ticker ticker;
 
+// Rad variables
 RadConnect radConnect("MyESP");
 RadThing switch_1(SwitchBinary, "switch_1");
+const int SWITCH_1_PIN = 2;
+const uint8_t SWITCH_ON = 255;
+const uint8_t SWITCH_OFF = 0;
+uint8_t switch_one_state = SWITCH_OFF;
 
-#define SWITCH_1 2
+// State variables for input button
+const int CMD_WAIT = 0;
+const int CMD_BUTTON_CHANGE = 1;
+const int BUTTON_PIN = 0;
+int cmd = CMD_WAIT;
+int button_state = HIGH;
+static long start_press = 0;
 
-bool switch_one_state = false;
+
 void switch_1_set(uint8_t value) {
   Serial.print("switch_1: ");
   Serial.println(value);
-  if(value == 255) {
-    digitalWrite(SWITCH_1, LOW);
-    switch_one_state = true;
+  if(value == SWITCH_ON) {
+    digitalWrite(SWITCH_1_PIN, LOW);
+    switch_one_state = SWITCH_ON;
   } else {
-    digitalWrite(SWITCH_1, HIGH);
-    switch_one_state = false;
+    digitalWrite(SWITCH_1_PIN, HIGH);
+    switch_one_state = SWITCH_OFF;
   }
 }
 
-uint8_t switch_1_get(void) {
-  if(switch_one_state) {
-    return 255;
+
+void switch_1_toggle() {
+  if(switch_one_state == SWITCH_OFF) {
+    switch_1_set(SWITCH_ON);
+    switch_1.send(State, SWITCH_ON);
   } else {
-    return 0;
+    switch_1_set(SWITCH_OFF);
+    switch_1.send(State, SWITCH_OFF);
   }
+}
+
+
+uint8_t switch_1_get(void) {
+  return switch_one_state;
 }
 
 
 void tick() {
-  //toggle state
+  // Toggle LED state
 //  int state = digitalRead(BUILTIN_LED);  // get the current state of GPIO1 pin
 //  digitalWrite(BUILTIN_LED, !state);     // set pin to the opposite state
 }
@@ -54,6 +75,36 @@ void config_mode_callback(WiFiManager *myWiFiManager) {
   Serial.println(myWiFiManager->getConfigPortalSSID());
   //entered config mode, make led toggle faster
   ticker.attach(0.2, tick);
+}
+
+
+void restart() {
+  //TODO turn off relays before restarting
+  ESP.reset();
+  delay(1000);
+}
+
+
+void reset() {
+  //reset settings to defaults
+  //TODO turn off relays before restarting
+  /*
+    WMSettings defaults;
+    settings = defaults;
+    EEPROM.begin(512);
+    EEPROM.put(0, settings);
+    EEPROM.end();
+  */
+  //reset wifi credentials
+  WiFi.disconnect();
+  delay(1000);
+  ESP.reset();
+  delay(1000);
+}
+
+
+void button_state_change() {
+  cmd = CMD_BUTTON_CHANGE;
 }
 
 
@@ -90,16 +141,18 @@ void setup_ota() {
 
 
 void setup() {
+
+  // Ensure switch is off
+  pinMode(SWITCH_1_PIN, OUTPUT);
+  digitalWrite(SWITCH_1_PIN, HIGH);
+
   delay(1000);
   Serial.begin(115200);
   Serial.print("setup");
 
-  pinMode(SWITCH_1, OUTPUT);
-  digitalWrite(SWITCH_1, HIGH);
-
   //set led pin as output
 //  pinMode(BUILTIN_LED, OUTPUT);
-//  // start ticker with 0.5 because we start in AP mode and try to connect
+//  // start ticker with 0.6 because we start in AP mode and try to connect
 //  ticker.attach(0.6, tick);
 
   WiFiManager wifiManager;
@@ -134,10 +187,42 @@ void setup() {
   switch_1.callback(Get, switch_1_get);
   radConnect.begin();
 
+  // Setup button
+  pinMode(BUTTON_PIN, INPUT);
+  attachInterrupt(BUTTON_PIN, button_state_change, CHANGE);
+
 }
 
 
 void loop() {
   ArduinoOTA.handle();
   radConnect.update();
+
+  // Handle button presses
+  switch (cmd) {
+    case CMD_WAIT:
+      break;
+    case CMD_BUTTON_CHANGE:
+      int current_state = digitalRead(BUTTON_PIN);
+      if (current_state != button_state) {
+        if (button_state == LOW && current_state == HIGH) {
+          long duration = millis() - start_press;
+          if (duration < 1000) {
+            Serial.println("short press - toggle relay");
+            switch_1_toggle();
+          } else if (duration < 5000) {
+            Serial.println("medium press - reset");
+            restart();
+          } else if (duration < 60000) {
+            Serial.println("long press - reset settings");
+            reset();
+          }
+        } else if (button_state == HIGH && current_state == LOW) {
+          start_press = millis();
+        }
+        button_state = current_state;
+      }
+      break;
+  }
+
 }
