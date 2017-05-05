@@ -11,17 +11,12 @@ static const char* HEADERS[] = {
 
 RadConnect::RadConnect(const char *name) {
   _name = name;
-  _index = 0;
   _http = ESP8266WebServer(RAD_HTTP_PORT);
 }
 
 
 void RadConnect::add(RadThing *thing) {
-  if(_index < MAX_THINGS) {
-    _things[_index] = thing;
-    thing->setId(_index);
-    _index += 1;
-  }
+  _things.add(thing);
 }
 
 
@@ -32,7 +27,7 @@ bool RadConnect::begin(void) {
   sprintf(_uuid, "38323636-4558-4dda-9188-cda0e6%02x%02x%02x",
   (uint16_t) ((chipId >> 16) & 0xff),
   (uint16_t) ((chipId >>  8) & 0xff),
-  (uint16_t)   chipId        & 0xff  );
+  (uint16_t)   chipId        & 0xff);
 
   Serial.println("ChipId: ");
   Serial.println(chipId);
@@ -46,8 +41,8 @@ bool RadConnect::begin(void) {
   // Prepare the JSON response
   JsonArray& things = _thingsBuffer.createArray();
   RadThing* thing;
-  for(uint8_t i = 0; i < _index; i++) {
-    thing = _things[i];
+  for(int i = 0; i < _things.size(); i++) {
+    thing = _things.get(i);
     JsonObject& thing_json = things.createNestedObject();
     char *type = "";
     switch(thing->getType()) {
@@ -91,9 +86,9 @@ void RadConnect::update(void) {
 
 RadThing *RadConnect::getThing(const char *name) {
   RadThing* thing = NULL;
-  for(uint8_t i = 0; i < _index; i++) {
-    if(strcmp(_things[i]->getName(), name) == 0) {
-      thing = _things[i];
+  for(int i = 0; i < _things.size(); i++) {
+    if(strcmp(_things.get(i)->getName(), name) == 0) {
+      thing = _things.get(i);
       break;
     }
   }
@@ -193,8 +188,8 @@ void RadConnect::handleSubscribe(void) {
 
 uint8_t RadConnect::execute(const char* name, CommandType command_type) {
   RadThing* thing;
-  for(uint8_t i = 0; i < _index; i++) {
-    thing = _things[i];
+  for(int i = 0; i < _things.size(); i++) {
+    thing = _things.get(i);
     if(strcmp(thing->getName(), name) == 0) {
       return thing->execute(command_type);
     }
@@ -204,8 +199,8 @@ uint8_t RadConnect::execute(const char* name, CommandType command_type) {
 
 bool RadConnect::execute(const char* name, CommandType command_type, uint8_t value) {
   RadThing* thing;
-  for(uint8_t i = 0; i < _index; i++) {
-    thing = _things[i];
+  for(int i = 0; i < _things.size(); i++) {
+    thing = _things.get(i);
     if(strcmp(thing->getName(), name) == 0) {
       return thing->execute(command_type, value);
     }

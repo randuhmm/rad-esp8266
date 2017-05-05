@@ -21,7 +21,6 @@
 #include <ESP8266WebServer.h>
 #include <LinkedList.h>
 
-#define MAX_THINGS 8
 #define MAX_CALLBACK_SIZE 255
 
 #define RAD_HTTP_PORT 8080
@@ -139,7 +138,6 @@ class RadThing {
 
     DeviceType getType() { return _type; };
     const char *getName() { return _name; };
-    void setId(uint8_t id) { _id = id; };
 
     void callback(CommandType command_type, SET_FP func) { _set_callback = func; };
     void callback(CommandType command_type, GET_FP func) { _get_callback = func; };
@@ -161,8 +159,7 @@ class RadConnect
 
     const char *_name;
     bool _started;
-    uint8_t _index;
-    RadThing *_things[MAX_THINGS];
+    LinkedList<RadThing*> _things;
     char _uuid[SSDP_UUID_SIZE];
     ESP8266WebServer _http;
 
@@ -181,7 +178,6 @@ class RadConnect
     RadConnect(const char *name);
 
     void add(RadThing *thing);
-
     bool begin(void);
     void update(void);
 
