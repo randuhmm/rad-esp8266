@@ -22,6 +22,7 @@ const uint8_t SWITCH_ON = 255;
 const uint8_t SWITCH_OFF = 0;
 uint8_t switch_one_state = SWITCH_OFF;
 
+
 // State variables for input button
 const int CMD_WAIT = 0;
 const int CMD_BUTTON_CHANGE = 1;

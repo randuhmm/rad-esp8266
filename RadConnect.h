@@ -21,6 +21,8 @@
 #include <ESP8266WebServer.h>
 #include <LinkedList.h>
 
+//#include <detail/RequestHandler.h>
+
 #define MAX_CALLBACK_SIZE 255
 
 #define RAD_HTTP_PORT 8080
@@ -88,6 +90,45 @@ static const char* _ssdp_schema_template =
   "    \"things\": %s\r\n"
   "}\r\n"
   "\r\n";
+
+
+class PathParameterRequestHandler : public RequestHandler {
+
+  public:
+
+    PathParameterRequestHandler(ESP8266WebServer::THandlerFunction fn, const char* uri, HTTPMethod method)
+      : _fn(fn)
+      , _uri(uri)
+      , _method(method)
+    {
+
+    }
+
+    bool canHandle(HTTPMethod requestMethod, String requestUri) override  {
+      if (_method != HTTP_ANY && _method != requestMethod)
+        return false;
+
+      if (requestUri != _uri)
+        return false;
+
+      return true;
+    }
+
+    bool handle(ESP8266WebServer& server, HTTPMethod requestMethod, String requestUri) override {
+      if (!canHandle(requestMethod, requestUri))
+        return false;
+
+      _fn();
+      return true;
+    }
+
+  protected:
+
+    ESP8266WebServer::THandlerFunction _fn;
+    String _uri;
+    HTTPMethod _method;
+
+};
 
 
 class Subscription {
