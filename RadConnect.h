@@ -73,6 +73,8 @@ typedef unsigned char       uint8_t;
 typedef void (* SET_FP)(uint8_t);
 typedef uint8_t (* GET_FP)(void);
 
+// typedef void (* PATH_FP)(LinkedList<String*>&);
+typedef std::function<void(LinkedList<String*>&)> PATH_FP;
 
 static const char* _ssdp_schema_template =
   "HTTP/1.1 200 OK\r\n"
@@ -92,16 +94,50 @@ static const char* _ssdp_schema_template =
   "\r\n";
 
 
-class PathParameterRequestHandler : public RequestHandler {
+class Segment {
 
   public:
 
-    PathParameterRequestHandler(ESP8266WebServer::THandlerFunction fn, const char* uri, HTTPMethod method)
+    Segment(const char* seg)
+      : _seg(seg)
+    {
+
+    }
+
+    bool check(String seg) {
+
+    }
+
+  protected:
+
+    String _seg;
+    bool _isPlaceholder;
+
+};
+
+
+class PathSegmentRequestHandler : public RequestHandler {
+
+  public:
+
+    PathSegmentRequestHandler(PATH_FP fn, const char* uri, HTTPMethod method)
       : _fn(fn)
       , _uri(uri)
       , _method(method)
     {
-
+      int start = 1;
+      Segment *segment = NULL;
+      int current = _uri.indexOf('/', start);
+      while(current != -1) {
+        if(current - start == 0) {
+          segment = new Segment("");
+        } else {
+          segment = new Segment(_uri.substring(start, current).c_str());
+        }
+        _segments.add(segment);
+        start = current + 1;
+        current = _uri.indexOf('/', start);
+      }
     }
 
     bool canHandle(HTTPMethod requestMethod, String requestUri) override  {
@@ -117,16 +153,17 @@ class PathParameterRequestHandler : public RequestHandler {
     bool handle(ESP8266WebServer& server, HTTPMethod requestMethod, String requestUri) override {
       if (!canHandle(requestMethod, requestUri))
         return false;
-
-      _fn();
+      LinkedList<String*> paths;
+      _fn(paths);
       return true;
     }
 
   protected:
 
-    ESP8266WebServer::THandlerFunction _fn;
+    PATH_FP _fn;
     String _uri;
     HTTPMethod _method;
+    LinkedList<Segment*> _segments;
 
 };
 
@@ -211,8 +248,13 @@ class RadConnect
     void handleCommand(void);
     void handleSubscribe(void);
 
+    void handleTest(LinkedList<String*>& segments);
+
     uint8_t execute(const char* name, CommandType command_type);
     bool execute(const char* name, CommandType command_type, uint8_t value);
+
+    void on(const char* uri, PATH_FP fn);
+    void on(const char* uri, HTTPMethod method, PATH_FP fn);
 
   public:
 

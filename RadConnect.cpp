@@ -55,6 +55,8 @@ bool RadConnect::begin(void) {
   }
   things.printTo(_thingsString, sizeof(_thingsString));
 
+  on("/test", std::bind(&RadConnect::handleTest, this, std::placeholders::_1));
+
   // SSDP
   // Serial.println("Starting http...");
   //_http.on("/", std::bind(&RadConnect::handleRoot, this));
@@ -93,6 +95,21 @@ RadThing *RadConnect::getThing(const char *name) {
     }
   }
   return thing;
+}
+
+
+void RadConnect::on(const char* uri, PATH_FP fn) {
+  on(uri, HTTP_ANY, fn);
+}
+
+
+void RadConnect::on(const char* uri, HTTPMethod method, PATH_FP fn) {
+  _http.addHandler(new PathSegmentRequestHandler(fn, uri, method));
+}
+
+
+void RadConnect::handleTest(LinkedList<String*>& segments) {
+  Serial.println("/test");
 }
 
 
