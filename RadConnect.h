@@ -74,7 +74,7 @@ typedef void (* SET_FP)(uint8_t);
 typedef uint8_t (* GET_FP)(void);
 
 // typedef void (* PATH_FP)(LinkedList<String*>&);
-typedef std::function<void(LinkedList<String*>&)> PATH_FP;
+typedef std::function<void(LinkedList<String>&)> PATH_FP;
 
 static const char* _ssdp_schema_template =
   "HTTP/1.1 200 OK\r\n"
@@ -101,7 +101,7 @@ class Segment {
     Segment(const char* seg)
       : _seg(seg)
     {
-      if(seg[0] = '{' && seg[strlen(seg) - 1] = '}') {
+      if(seg[0] == '{' && seg[strlen(seg) - 1] == '}') {
         _isParam = true;
       } else {
         _isParam = false;
@@ -114,6 +114,10 @@ class Segment {
 
     bool check(String seg) {
       return seg == _seg;
+    }
+
+    String get() {
+      return _seg;
     }
 
   protected:
@@ -146,27 +150,39 @@ class PathSegmentRequestHandler : public RequestHandler {
         start = current + 1;
         current = _uri.indexOf('/', start);
       }
+      if(start <= _uri.length()) {
+        segment = new Segment(_uri.substring(start, current).c_str());
+        _segments.add(segment);
+      }
+      Serial.println("PATH SEGMENTS: ");
+      for(int i = 0; i < _segments.size(); i++) {
+        Serial.println((String)i + ": " + _segments.get(i)->get());
+      }
     }
 
     bool canHandle(HTTPMethod requestMethod, String requestUri) override  {
       bool result = true;
-      bool cleanup = !_uriProcessed;
+      bool clean = !_uriProcessed;
       splitUri(requestUri);
       if(_method == HTTP_ANY || _method == requestMethod) {
         if(_currentSegments.size() != _segments.size()) {
+          Serial.println("SIZE mismatch.");
           result = false;
         } else {
           Segment* s;
           for(int i = 0; i < _segments.size(); i++) {
-            s = _segments[i];
-            if(!s.isParam() && !s.check(_currentSegments[i])) {
+            s = _segments.get(i);
+            if(!s->isParam() && !s->check(_currentSegments.get(i))) {
+              Serial.println("SEGMENT mismatch.");
+              Serial.println(s->get());
+              Serial.println(_currentSegments.get(i));
               result = false;
               break;
             }
           }
         }
       }
-      if(cleanup) {
+      if(clean) {
         cleanup();
       }
       return result;
@@ -176,12 +192,12 @@ class PathSegmentRequestHandler : public RequestHandler {
       bool result = false;
       splitUri(requestUri);
       if(canHandle(requestMethod, requestUri)) {
-        LinkedList<String*> paths;
+        LinkedList<String> paths;
         Segment* s;
         for(int i = 0; i < _segments.size(); i++) {
-          s = _segments[i];
-          if(s.isParam()) {
-            paths.add(_currentSegments[i]);
+          s = _segments.get(i);
+          if(s->isParam()) {
+            paths.add(_currentSegments.get(i));
           }
         }
         _fn(paths);
@@ -204,6 +220,7 @@ class PathSegmentRequestHandler : public RequestHandler {
 
     void splitUri(String uri) {
       if(_uriProcessed) return;
+      _uriProcessed = true;
       int start = 1;
       int current = uri.indexOf('/', start);
       while(current != -1) {
@@ -215,16 +232,18 @@ class PathSegmentRequestHandler : public RequestHandler {
         start = current + 1;
         current = uri.indexOf('/', start);
       }
+      if(start <= uri.length()) {
+        _currentSegments.add(uri.substring(start));
+      }
+      Serial.println("REQUEST SEGMENTS: ");
+      for(int i = 0; i < _currentSegments.size(); i++) {
+        Serial.println((String)i + ": " + _currentSegments.get(i));
+      }
     }
 
     void cleanup() {
-      Segment* s;
-      for(int i = 0; i < _segments.size(); i++) {
-        s = _segments[i];
-        if(s.isParam()) {
-          paths.add(_currentSegments[i]);
-        }
-      }
+      _currentSegments.clear();
+      _uriProcessed = false;
     }
 
 };
@@ -310,7 +329,7 @@ class RadConnect
     void handleCommand(void);
     void handleSubscribe(void);
 
-    void handleTest(LinkedList<String*>& segments);
+    void handleTest(LinkedList<String>& segments);
 
     uint8_t execute(const char* name, CommandType command_type);
     bool execute(const char* name, CommandType command_type, uint8_t value);
