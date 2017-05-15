@@ -101,17 +101,25 @@ class Segment {
     Segment(const char* seg)
       : _seg(seg)
     {
+      if(seg[0] = '{' && seg[strlen(seg) - 1] = '}') {
+        _isParam = true;
+      } else {
+        _isParam = false;
+      }
+    }
 
+    bool isParam(void) {
+      return _isParam;
     }
 
     bool check(String seg) {
-
+      return seg == _seg;
     }
 
   protected:
 
     String _seg;
-    bool _isPlaceholder;
+    bool _isParam;
 
 };
 
@@ -125,8 +133,8 @@ class PathSegmentRequestHandler : public RequestHandler {
       , _uri(uri)
       , _method(method)
     {
-      int start = 1;
       Segment *segment = NULL;
+      int start = 1;
       int current = _uri.indexOf('/', start);
       while(current != -1) {
         if(current - start == 0) {
@@ -141,21 +149,45 @@ class PathSegmentRequestHandler : public RequestHandler {
     }
 
     bool canHandle(HTTPMethod requestMethod, String requestUri) override  {
-      if (_method != HTTP_ANY && _method != requestMethod)
-        return false;
-
-      if (requestUri != _uri)
-        return false;
-
-      return true;
+      bool result = true;
+      bool cleanup = !_uriProcessed;
+      splitUri(requestUri);
+      if(_method == HTTP_ANY || _method == requestMethod) {
+        if(_currentSegments.size() != _segments.size()) {
+          result = false;
+        } else {
+          Segment* s;
+          for(int i = 0; i < _segments.size(); i++) {
+            s = _segments[i];
+            if(!s.isParam() && !s.check(_currentSegments[i])) {
+              result = false;
+              break;
+            }
+          }
+        }
+      }
+      if(cleanup) {
+        cleanup();
+      }
+      return result;
     }
 
     bool handle(ESP8266WebServer& server, HTTPMethod requestMethod, String requestUri) override {
-      if (!canHandle(requestMethod, requestUri))
-        return false;
-      LinkedList<String*> paths;
-      _fn(paths);
-      return true;
+      bool result = false;
+      splitUri(requestUri);
+      if(canHandle(requestMethod, requestUri)) {
+        LinkedList<String*> paths;
+        Segment* s;
+        for(int i = 0; i < _segments.size(); i++) {
+          s = _segments[i];
+          if(s.isParam()) {
+            paths.add(_currentSegments[i]);
+          }
+        }
+        _fn(paths);
+      }
+      cleanup();
+      return result;
     }
 
   protected:
@@ -164,6 +196,36 @@ class PathSegmentRequestHandler : public RequestHandler {
     String _uri;
     HTTPMethod _method;
     LinkedList<Segment*> _segments;
+
+    bool _uriProcessed = false;
+    LinkedList<String> _currentSegments;
+
+  private:
+
+    void splitUri(String uri) {
+      if(_uriProcessed) return;
+      int start = 1;
+      int current = uri.indexOf('/', start);
+      while(current != -1) {
+        if(current - start == 0) {
+          _currentSegments.add(String(""));
+        } else {
+          _currentSegments.add(uri.substring(start, current));
+        }
+        start = current + 1;
+        current = uri.indexOf('/', start);
+      }
+    }
+
+    void cleanup() {
+      Segment* s;
+      for(int i = 0; i < _segments.size(); i++) {
+        s = _segments[i];
+        if(s.isParam()) {
+          paths.add(_currentSegments[i]);
+        }
+      }
+    }
 
 };
 
