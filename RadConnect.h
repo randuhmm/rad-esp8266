@@ -31,9 +31,11 @@
 #define RAD_MODEL_NUM "9001"
 #define RAD_INFO_URL "http://example.com"
 
-#define RAD_INFO_PATH "info"
-#define RAD_COMMAND_PATH "command"
-#define RAD_SUBSCRIBE_PATH "subscribe"
+#define RAD_INFO_PATH "/"
+#define RAD_DEVICES_PATH "/devices"
+#define RAD_SUBSCRIPTIONS_PATH "/subscriptions"
+#define RAD_COMMANDS_PATH "/commands"
+#define RAD_EVENTS_PATH "/events"
 
 
 #define HEADER_HOST      "HOST"
@@ -83,13 +85,12 @@ static const char* _ssdp_schema_template =
   "Access-Control-Allow-Origin: *\r\n"
   "\r\n"
   "{\r\n"
-  "    \"deviceName\": \"%s\",\r\n"
-  "    \"deviceType\": \"" RAD_DEVICE_TYPE "\",\r\n"
-  "    \"modelDescription\": \"Rad ESP8266 WiFi Module for IoT Integration\",\r\n"
-  "    \"modelName\": \"" RAD_MODEL_NAME "\",\r\n"
-  "    \"serialNum\": \"\",\r\n"
+  "    \"name\": \"%s\",\r\n"
+  "    \"type\": \"" RAD_DEVICE_TYPE "\",\r\n"
+  "    \"model\": \"" RAD_MODEL_NAME "\",\r\n"
+  "    \"description\": \"Rad ESP8266 WiFi Module for IoT Integration\",\r\n"
+  "    \"serial\": \"\",\r\n"
   "    \"UDN\": \"uuid:%s\",\r\n"
-  "    \"things\": %s\r\n"
   "}\r\n"
   "\r\n";
 
@@ -277,13 +278,12 @@ class Subscription {
 };
 
 
-class RadThing {
+class RadDevice {
 
   private:
 
-    DeviceType _type;
-    const char *_name;
-    uint8_t _id;
+    DeviceType _name;
+    const char *_id;
     uint8_t _subscription_count;
 
     SET_FP _set_callback;
@@ -325,11 +325,13 @@ class RadConnect
     StaticJsonBuffer<1024> _thingsBuffer;
     char _thingsString[1024];
 
+    // HTTP Path Handler Functions
     void handleInfo(void);
-    void handleCommand(void);
-    void handleSubscribe(void);
-
-    void handleTest(LinkedList<String>& segments);
+    void handleDevices(void);
+    void handleSubscriptions(void);
+    void handleDeviceCommands(LinkedList<String>& segments);
+    void handleDeviceEvents(LinkedList<String>& segments);
+    void handleSubscription(LinkedList<String>& segments);
 
     uint8_t execute(const char* name, CommandType command_type);
     bool execute(const char* name, CommandType command_type, uint8_t value);

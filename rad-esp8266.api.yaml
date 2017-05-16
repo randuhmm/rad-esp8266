@@ -162,17 +162,25 @@ paths:
 definitions:
   Info:
     required:
-      - id
       - name
+      - type
+      - model
+      - description
+      - serial
+      - UDN
     properties:
-      id:
-        type: string
       name:
+        type: string
+      type:
+        type: string
+      model:
         type: string
       description:
         type: string
-      data:
-        type: object
+      serial:
+        type: string
+      UDN:
+        type: string
   Device:
     required:
       - id

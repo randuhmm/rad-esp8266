@@ -38,31 +38,22 @@ bool RadConnect::begin(void) {
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
 
-  // Prepare the JSON response
-  JsonArray& things = _thingsBuffer.createArray();
-  RadThing* thing;
-  for(int i = 0; i < _things.size(); i++) {
-    thing = _things.get(i);
-    JsonObject& thing_json = things.createNestedObject();
-    char *type = "";
-    switch(thing->getType()) {
-      case SwitchBinary:
-        type = "SwitchBinary";
-        break;
-    }
-    thing_json["type"] = type;
-    thing_json["name"] = thing->getName();
-  }
-  things.printTo(_thingsString, sizeof(_thingsString));
+  _http.on(RAD_INFO_PATH, std::bind(&RadConnect::handleInfo, this));
+  _http.on(RAD_DEVICES_PATH, std::bind(&RadConnect::handleDevices, this));
+  _http.on(RAD_SUBSCRIPTIONS_PATH, std::bind(&RadConnect::handleSubscriptions, this));
 
-  on("/devices/{}/events", std::bind(&RadConnect::handleTest, this, std::placeholders::_1));
+  on(RAD_DEVICES_PATH "/{}" RAD_COMMANDS_PATH,
+     std::bind(&RadConnect::handleDeviceCommands, this, std::placeholders::_1));
+  on(RAD_DEVICES_PATH "/{}" RAD_EVENTS_PATH,
+     std::bind(&RadConnect::handleDeviceEvents, this, std::placeholders::_1));
+  on(RAD_SUBSCRIPTIONS_PATH "/{}",
+     std::bind(&RadConnect::handleSubscription, this, std::placeholders::_1));
 
   // SSDP
   // Serial.println("Starting http...");
   //_http.on("/", std::bind(&RadConnect::handleRoot, this));
-  _http.on("/" RAD_INFO_PATH, std::bind(&RadConnect::handleInfo, this));
-  _http.on("/" RAD_COMMAND_PATH, std::bind(&RadConnect::handleCommand, this));
-  _http.on("/" RAD_SUBSCRIBE_PATH, std::bind(&RadConnect::handleSubscribe, this));
+  // _http.on("/" RAD_COMMAND_PATH, std::bind(&RadConnect::handleCommand, this));
+  // _http.on("/" RAD_SUBSCRIBE_PATH, std::bind(&RadConnect::handleSubscribe, this));
   _http.collectHeaders(HEADERS, 4);
   _http.begin();
   SSDP.setDeviceType(RAD_DEVICE_TYPE);
@@ -108,61 +99,42 @@ void RadConnect::on(const char* uri, HTTPMethod method, PATH_FP fn) {
 }
 
 
-void RadConnect::handleTest(LinkedList<String>& segments) {
-  Serial.println("/devices/{}/events");
-  for(int i = 0; i < segments.size(); i++) {
-    Serial.print("Segment " + (String)i + ": ");
-    Serial.println(segments.get(i));
-  }
-  _http.send(200, "application/json", "/devices/{}/events");
-}
-
-
 void RadConnect::handleInfo(void) {
-  Serial.println("/info");
+  Serial.println("/");
   _http.client().printf(_ssdp_schema_template,
     _name,
-    _uuid,
-    _thingsString
+    _uuid
   );
 }
 
 
-void RadConnect::handleCommand(void) {
-  Serial.println("/command");
+void RadConnect::handleDevices(void) {
+  Serial.println("/devices");
 
-  int code = 200;
-  String message = "";
-  if(_http.arg("name") == "" || _http.arg("type") == "") {
-    code = 400;
-    message = "{\"error\": \"Missing required parameter(s): 'name' and/or 'type'\"}";
-  } else {
-    if(_http.arg("type") == "set") {
-      if(_http.arg("value") == "") {
-        code = 400;
-        message = "{\"error\": \"Missing required parameter(s): 'value'\"}";
-      } else if(execute(_http.arg("name").c_str(), Set, atoi(_http.arg("value").c_str()))) {
-        code = 200;
-        message = "{\"result\": true}";
-      } else {
-        code = 500;
-      }
-    } else if(_http.arg("type") == "get") {
-      uint8_t value = execute(_http.arg("name").c_str(), Get);
-      char buff[100];
-      snprintf(buff, sizeof(buff), "{\"value\": %d}", value);
-      message = buff;
-    } else {
-      code = 400;
-      message = "{\"error\": \"Unsuported command type.\"}";
+  // Prepare the JSON response
+  JsonArray& devices = _devicesBuffer.createArray();
+  RadThing* device;
+  for(int i = 0; i < _devices.size(); i++) {
+    device = _devices.get(i);
+    JsonObject& device_json = devices.createNestedObject();
+    char *type = "";
+    switch(device->getType()) {
+      case SwitchBinary:
+        type = "SwitchBinary";
+        break;
     }
+    device_json["name"] = device->getName();
+    device_json["type"] = type;
+    device_json["description"] = "";
   }
+  devices.printTo(_devicesString, sizeof(_devicesString));
+
   _http.send(code, "application/json", message);
 }
 
 
-void RadConnect::handleSubscribe(void) {
-  Serial.println("/subscribe");
+void RadConnect::handleSubscriptions(void) {
+  Serial.println("/subscriptions");
 
   String test = "Number of args received: ";
   test += _http.args() + "\n";
@@ -205,6 +177,66 @@ void RadConnect::handleSubscribe(void) {
 
   //_http.sendHeader(HEADER_TIMEOUT, _http.header(HEADER_TIMEOUT));
   _http.send(code, "application/json", message);
+}
+
+void RadConnect::handleDeviceCommands(LinkedList<String>& segments) {
+  Serial.println("/devices/{}/commands");
+  for(int i = 0; i < segments.size(); i++) {
+    Serial.print("Segment " + (String)i + ": ");
+    Serial.println(segments.get(i));
+  }
+  _http.send(200, "application/json", "/devices/{}/commands");
+  return;
+
+  int code = 200;
+  String message = "";
+  if(_http.arg("name") == "" || _http.arg("type") == "") {
+    code = 400;
+    message = "{\"error\": \"Missing required parameter(s): 'name' and/or 'type'\"}";
+  } else {
+    if(_http.arg("type") == "set") {
+      if(_http.arg("value") == "") {
+        code = 400;
+        message = "{\"error\": \"Missing required parameter(s): 'value'\"}";
+      } else if(execute(_http.arg("name").c_str(), Set, atoi(_http.arg("value").c_str()))) {
+        code = 200;
+        message = "{\"result\": true}";
+      } else {
+        code = 500;
+      }
+    } else if(_http.arg("type") == "get") {
+      uint8_t value = execute(_http.arg("name").c_str(), Get);
+      char buff[100];
+      snprintf(buff, sizeof(buff), "{\"value\": %d}", value);
+      message = buff;
+    } else {
+      code = 400;
+      message = "{\"error\": \"Unsuported command type.\"}";
+    }
+  }
+  _http.send(code, "application/json", message);
+}
+
+
+void RadConnect::handleDeviceEvents(LinkedList<String>& segments) {
+  Serial.println("/devices/{}/events");
+  for(int i = 0; i < segments.size(); i++) {
+    Serial.print("Segment " + (String)i + ": ");
+    Serial.println(segments.get(i));
+  }
+  _http.send(200, "application/json", "/devices/{}/events");
+  return;
+}
+
+
+void RadConnect::handleSubscription(LinkedList<String>& segments) {
+  Serial.println("/subscriptions/{}");
+  for(int i = 0; i < segments.size(); i++) {
+    Serial.print("Segment " + (String)i + ": ");
+    Serial.println(segments.get(i));
+  }
+  _http.send(200, "application/json", "/subscriptions/{}");
+  return;
 }
 
 
