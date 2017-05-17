@@ -41,14 +41,14 @@ paths:
           description: unexpected error
           schema:
             $ref: '#/definitions/Error'
-  '/devices/{device_id}/commands':
+  '/devices/{device_name}/commands':
     get:
       summary: List all commands
       operationId: listCommands
       tags:
         - commands
       parameters:
-        - name: device_id
+        - name: device_name
           in: path
           required: true
           description: The id of the device to retrieve commands for
@@ -83,14 +83,14 @@ paths:
           description: unexpected error
           schema:
             $ref: '#/definitions/Error'
-  '/devices/{device_id}/events':
+  '/devices/{device_name}/events':
     get:
       summary: List all events
       operationId: listEvents
       tags:
         - events
       parameters:
-        - name: device_id
+        - name: device_name
           in: path
           required: true
           description: The id of the device to retrieve events for
@@ -183,12 +183,12 @@ definitions:
         type: string
   Device:
     required:
-      - id
       - name
+      - type
     properties:
-      id:
-        type: string
       name:
+        type: string
+      type:
         type: string
       description:
         type: string
@@ -201,14 +201,14 @@ definitions:
   Command:
     required:
       - id
-      - device_id
-      - name
+      - device_name
+      - type
     properties:
       id:
         type: string
-      device_id:
+      device_name:
         type: string
-      name:
+      type:
         type: string
       data:
         type: object
@@ -220,23 +220,23 @@ definitions:
       $ref: '#/definitions/Command'
   NewCommand:
     required:
-      - device_id
-      - name
+      - device_name
+      - type
     properties:
-      device_id:
+      device_name:
         type: string
-      name:
+      type:
         type: string
       data:
         type: object
   Event:
     required:
-      - device_id
-      - name
+      - device_name
+      - type
     properties:
-      device_id:
+      device_name:
         type: string
-      name:
+      type:
         type: string
       data:
         type: object
@@ -247,8 +247,8 @@ definitions:
   Subscription:
     required:
       - id
-      - device_id
-      - name
+      - device_name
+      - type
       - callback
       - timeout
       - started
@@ -256,9 +256,9 @@ definitions:
     properties:
       id:
         type: string
-      device_id:
+      device_name:
         type: string
-      name:
+      type:
         type: string
       callback:
         type: string
@@ -274,14 +274,13 @@ definitions:
       $ref: '#/definitions/Subscription'
   NewSubscription:
     required:
-      - device_id
-      - name
+      - device_name
+      - type
       - callback
-      - timeout
     properties:
-      device_id:
+      device_name:
         type: string
-      name:
+      type:
         type: string
       callback:
         type: string

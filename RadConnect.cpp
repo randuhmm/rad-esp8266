@@ -1,6 +1,84 @@
 #include "RadConnect.h"
 
 
+DeviceType getDeviceType(const char* s) {
+  DeviceType dt = NullDevice;
+  if(strcmp(s, "SwitchBinary") == 0) {
+    dt = SwitchBinary;
+  } else if(strcmp(s, "SensorBinary") == 0) {
+    dt = SensorBinary;
+  } else if(strcmp(s, "SwitchMultiLevel") == 0) {
+    dt = SwitchMultiLevel;
+  } else if(strcmp(s, "SensorMultiLevel") == 0) {
+    dt = SensorMultiLevel;
+  }
+  return dt;
+}
+
+
+const char* sendDeviceType(DeviceType dt) {
+  const char* s = "NullDevice";
+  if(dt == SwitchBinary) {
+    s = "SwitchBinary";
+  } else if(dt == SensorBinary) {
+    s = "SensorBinary";
+  } else if(dt == SwitchMultiLevel) {
+    s = "SwitchMultiLevel";
+  } else if(dt == SensorMultiLevel) {
+    s = "SensorMultiLevel";
+  }
+  return s;
+}
+
+
+CommandType getCommandType(const char* s) {
+  CommandType ct = NullCommand;
+  if(strcmp(s, "Get") == 0) {
+    ct = Get;
+  } else if(strcmp(s, "Set") == 0) {
+    ct = Set;
+  }
+  return ct;
+}
+
+
+const char* sendCommandType(CommandType ct) {
+  const char* s = "NullCommand";
+  if(ct == Get) {
+    s = "Get";
+  } else if(ct == Set) {
+    s = "Set";
+  }
+  return s;
+}
+
+
+EventType getEventType(const char* s) {
+  EventType et = NullEvent;
+  if(strcmp(s, "All") == 0) {
+    et = All;
+  } else if(strcmp(s, "Start") == 0) {
+    et = Start;
+  } else if(strcmp(s, "State") == 0) {
+    et = State;
+  }
+  return et;
+}
+
+
+const char* sendEventType(EventType et) {
+  const char* s = "NullEvent";
+  if(et == All) {
+    s = "All";
+  } else if(et == Start) {
+    s = "Start";
+  } else if(et == State) {
+    s = "State";
+  }
+  return s;
+}
+
+
 static const char* HEADERS[] = {
   HEADER_HOST,
   HEADER_CALLBACK,
@@ -15,8 +93,13 @@ RadConnect::RadConnect(const char *name) {
 }
 
 
-void RadConnect::add(RadThing *thing) {
-  _things.add(thing);
+void RadConnect::add(RadDevice *device) {
+  _devices.add(device);
+}
+
+
+void RadConnect::add(Subscription *s) {
+  _subscriptions.add(s);
 }
 
 
@@ -77,15 +160,15 @@ void RadConnect::update(void) {
 }
 
 
-RadThing *RadConnect::getThing(const char *name) {
-  RadThing* thing = NULL;
-  for(int i = 0; i < _things.size(); i++) {
-    if(strcmp(_things.get(i)->getName(), name) == 0) {
-      thing = _things.get(i);
+RadDevice *RadConnect::getDevice(const char *name) {
+  RadDevice* device = NULL;
+  for(int i = 0; i < _devices.size(); i++) {
+    if(strcmp(_devices.get(i)->getName(), name) == 0) {
+      device = _devices.get(i);
       break;
     }
   }
-  return thing;
+  return device;
 }
 
 
@@ -101,83 +184,103 @@ void RadConnect::on(const char* uri, HTTPMethod method, PATH_FP fn) {
 
 void RadConnect::handleInfo(void) {
   Serial.println("/");
-  _http.client().printf(_ssdp_schema_template,
-    _name,
-    _uuid
-  );
+  if(_http.method() == HTTP_GET) {
+    _http.client().printf(_ssdp_schema_template,
+      _name,
+      _uuid
+    );
+  } else {
+    _http.send(405);
+  }
 }
 
 
 void RadConnect::handleDevices(void) {
   Serial.println("/devices");
-
-  // Prepare the JSON response
-  JsonArray& devices = _devicesBuffer.createArray();
-  RadThing* device;
-  for(int i = 0; i < _devices.size(); i++) {
-    device = _devices.get(i);
-    JsonObject& device_json = devices.createNestedObject();
-    char *type = "";
-    switch(device->getType()) {
-      case SwitchBinary:
-        type = "SwitchBinary";
-        break;
+  int code = 200;
+  if(_http.method() == HTTP_GET) {
+    // Prepare the JSON response
+    StaticJsonBuffer<1024> devicesBuffer;
+    char devicesString[1024];
+    JsonArray& devices = devicesBuffer.createArray();
+    RadDevice* device;
+    for(int i = 0; i < _devices.size(); i++) {
+      device = _devices.get(i);
+      JsonObject& device_json = devices.createNestedObject();
+      device_json["name"] = device->getName();
+      device_json["type"] = sendDeviceType(device->getType());
+      device_json["description"] = "";
     }
-    device_json["name"] = device->getName();
-    device_json["type"] = type;
-    device_json["description"] = "";
+    devices.printTo(devicesString, sizeof(devicesString));
+    _http.send(code, "application/json", devicesString);
+  } else {
+    _http.send(405);
   }
-  devices.printTo(_devicesString, sizeof(_devicesString));
-
-  _http.send(code, "application/json", message);
 }
 
 
 void RadConnect::handleSubscriptions(void) {
   Serial.println("/subscriptions");
-
-  String test = "Number of args received: ";
-  test += _http.args() + "\n";
-  for (int i = 0; i < _http.args(); i++) {
-    test += "Arg nº" + (String)i + " –> ";
-    test += _http.argName(i) + ": ";
-    test += _http.arg(i) + "\n";
-  }
-  test += "\nNumber of headers received: ";
-  test += (String)_http.headers() + "\n";
-  for (int i = 0; i < _http.headers(); i++) {
-    test += "Header nº" + (String)i + " –> ";
-    test += _http.headerName(i) + ": ";
-    test += _http.header(i) + "\n";
-  }
-  Serial.println(test);
-
-
   int code = 200;
-  String message = "";
-  if(_http.arg("name") == "" || _http.arg("type") == "") {
-    code = 400;
-    message = "{\"error\": \"Missing required parameter(s): 'name' and/or 'type'\"}";
-  } else {
-    RadThing* thing = getThing(_http.arg("name").c_str());
-    if(thing == NULL) {
-      code = 404;
-      message = "{\"error\": \"Unable to find device.\"}";
-    } else if(_http.arg("type") == "state") {
-      Subscription *subscription = thing->subscribe(State, _http.header(HEADER_CALLBACK).c_str());
-      char sid[100];
-      snprintf(sid, sizeof(sid), "uuid:%s", subscription->getSid());
-      _http.sendHeader("SID", sid);
-      _http.sendHeader(HEADER_TIMEOUT, _http.header(HEADER_TIMEOUT));
-    } else {
-      code = 400;
-      message = "{\"error\": \"Unsuported event type.\"}";
+  if(_http.method() == HTTP_GET) {
+    // Prepare the JSON response
+    StaticJsonBuffer<1024> subscriptionsBuffer;
+    char subscriptionsString[1024];
+    JsonArray& subscriptions = subscriptionsBuffer.createArray();
+    RadDevice* device;
+    Subscription* subscription;
+    for(int i = 0; i < _subscriptions.size(); i++) {
+      subscription = _subscriptions.get(i);
+      device = subscription->getDevice();
+      JsonObject& subscription_json = subscriptions.createNestedObject();
+      subscription_json["id"] = subscription->getSid();
+      subscription_json["device_name"] = device->getName();
+      subscription_json["type"] = sendEventType(subscription->getType());
+      subscription_json["callback"] = subscription->getCallback();
+      subscription_json["timeout"] = 0;
     }
+    subscriptions.printTo(subscriptionsString, sizeof(subscriptionsString));
+    _http.send(code, "application/json", subscriptionsString);
+  } else if(_http.method() == HTTP_POST) {
+    String message = "";
+    StaticJsonBuffer<255> jsonBuffer;
+    JsonObject& root = jsonBuffer.parseObject(_http.arg("plain"));
+    if(!root.containsKey("device_name")) {
+      code = 400;
+      message = "{\"error\": \"Missing required property 'device_name'.\"}";
+    } else if(!root.containsKey("type")) {
+      code = 400;
+      message = "{\"error\": \"Missing required property 'type'.\"}";
+    } else if(!root.containsKey("callback")) {
+      code = 400;
+      message = "{\"error\": \"Missing required property 'callback'.\"}";
+    } else {
+      const char* device_name = root["device_name"];
+      EventType type = getEventType(root["type"]);
+      const char* callback = root["callback"];
+      int timeout = root["timeout"];
+      RadDevice *device = getDevice(device_name);
+      if (device == NULL) {
+        code = 400;
+        message = "{\"error\": \"Device could not be located.\"}";
+      } else if(type == NullEvent) {
+        code = 400;
+        message = "{\"error\": \"Unsuported event type.\"}";
+      } else {
+        Subscription *subscription = device->subscribe(type, callback);
+        add(subscription);
+        char sid[100];
+        snprintf(sid, sizeof(sid), "uuid:%s", subscription->getSid());
+        _http.sendHeader("SID", sid);
+        _http.sendHeader(HEADER_TIMEOUT, String(timeout));
+      }
+    }
+    _http.send(code, "application/json", message);
+  } else {
+    _http.send(405);
   }
-
-  //_http.sendHeader(HEADER_TIMEOUT, _http.header(HEADER_TIMEOUT));
-  _http.send(code, "application/json", message);
 }
+
 
 void RadConnect::handleDeviceCommands(LinkedList<String>& segments) {
   Serial.println("/devices/{}/commands");
@@ -241,28 +344,28 @@ void RadConnect::handleSubscription(LinkedList<String>& segments) {
 
 
 uint8_t RadConnect::execute(const char* name, CommandType command_type) {
-  RadThing* thing;
-  for(int i = 0; i < _things.size(); i++) {
-    thing = _things.get(i);
-    if(strcmp(thing->getName(), name) == 0) {
-      return thing->execute(command_type);
+  RadDevice* device;
+  for(int i = 0; i < _devices.size(); i++) {
+    device = _devices.get(i);
+    if(strcmp(device->getName(), name) == 0) {
+      return device->execute(command_type);
     }
   }
 }
 
 
 bool RadConnect::execute(const char* name, CommandType command_type, uint8_t value) {
-  RadThing* thing;
-  for(int i = 0; i < _things.size(); i++) {
-    thing = _things.get(i);
-    if(strcmp(thing->getName(), name) == 0) {
-      return thing->execute(command_type, value);
+  RadDevice* device;
+  for(int i = 0; i < _devices.size(); i++) {
+    device = _devices.get(i);
+    if(strcmp(device->getName(), name) == 0) {
+      return device->execute(command_type, value);
     }
   }
 }
 
 
-RadThing::RadThing(DeviceType type, const char *name) {
+RadDevice::RadDevice(DeviceType type, const char *name) {
   _type = type;
   _name = name;
   _set_callback = NULL;
@@ -271,7 +374,7 @@ RadThing::RadThing(DeviceType type, const char *name) {
 }
 
 
-uint8_t RadThing::execute(CommandType command_type) {
+uint8_t RadDevice::execute(CommandType command_type) {
   uint8_t result = 0;
   switch(command_type) {
     case Get:
@@ -290,7 +393,7 @@ uint8_t RadThing::execute(CommandType command_type) {
 }
 
 
-bool RadThing::execute(CommandType command_type, uint8_t value) {
+bool RadDevice::execute(CommandType command_type, uint8_t value) {
   bool result = false;
   switch(command_type) {
     case Set:
@@ -310,12 +413,12 @@ bool RadThing::execute(CommandType command_type, uint8_t value) {
 }
 
 
-void RadThing::send(EventType event_type) {
+void RadDevice::send(EventType event_type) {
 
 }
 
 
-void RadThing::send(EventType event_type, uint8_t value) {
+void RadDevice::send(EventType event_type, uint8_t value) {
   Subscription *s;
   String message = "";
   switch(event_type) {
@@ -355,7 +458,7 @@ void RadThing::send(EventType event_type, uint8_t value) {
 }
 
 
-Subscription *RadThing::subscribe(EventType type, const char *callback, int timeout) {
+Subscription *RadDevice::subscribe(EventType type, const char *callback, int timeout) {
 
   Subscription *s;
   for(int i = 0; i < _subscriptions.size(); i++) {
@@ -378,7 +481,7 @@ Subscription *RadThing::subscribe(EventType type, const char *callback, int time
   (uint16_t)   chipId        & 0xff ,
               _id,
               _subscription_count);
-  Subscription *subscription = new Subscription(sid, type, callback, timeout);
+  Subscription *subscription = new Subscription(this, sid, type, callback, timeout);
   _subscriptions.add(subscription);
   Serial.print("SID: ");
   Serial.println(sid);

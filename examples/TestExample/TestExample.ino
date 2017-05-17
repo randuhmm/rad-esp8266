@@ -16,7 +16,7 @@ Ticker ticker;
 
 // Rad variables
 RadConnect radConnect("MyESP");
-RadThing switch_1(SwitchBinary, "switch_1");
+RadDevice switch_1(SwitchBinary, "switch_1");
 const int SWITCH_1_PIN = 2;
 const uint8_t SWITCH_ON = 255;
 const uint8_t SWITCH_OFF = 0;

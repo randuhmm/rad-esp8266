@@ -46,37 +46,36 @@
 
 // Device Types
 enum DeviceType {
+    NullDevice       = 0,
     SwitchBinary     = 1,
     SensorBinary     = 2,
     SwitchMultiLevel = 3,
     SensorMultiLevel = 4
 };
 
-// Message Types
-enum MessageType {
-    Command = 1,
-    Event   = 2
-};
-
 // Command Types
 enum CommandType {
-    Get = 1,
-    Set = 2
+    NullCommand  = 0,
+    Get          = 1,
+    Set          = 2
 };
 
 // Event Types
 enum EventType {
-    Start = 1,
-    State = 2
+    NullEvent  = 0,
+    All        = 1,
+    Start      = 2,
+    State      = 3
 };
 
-typedef unsigned char       uint8_t;
+typedef unsigned char uint8_t;
 
 typedef void (* SET_FP)(uint8_t);
 typedef uint8_t (* GET_FP)(void);
 
 // typedef void (* PATH_FP)(LinkedList<String*>&);
 typedef std::function<void(LinkedList<String>&)> PATH_FP;
+class RadDevice;
 
 static const char* _ssdp_schema_template =
   "HTTP/1.1 200 OK\r\n"
@@ -155,10 +154,10 @@ class PathSegmentRequestHandler : public RequestHandler {
         segment = new Segment(_uri.substring(start, current).c_str());
         _segments.add(segment);
       }
-      Serial.println("PATH SEGMENTS: ");
-      for(int i = 0; i < _segments.size(); i++) {
-        Serial.println((String)i + ": " + _segments.get(i)->get());
-      }
+      // Serial.println("PATH SEGMENTS: ");
+      // for(int i = 0; i < _segments.size(); i++) {
+      //   Serial.println((String)i + ": " + _segments.get(i)->get());
+      // }
     }
 
     bool canHandle(HTTPMethod requestMethod, String requestUri) override  {
@@ -167,16 +166,16 @@ class PathSegmentRequestHandler : public RequestHandler {
       splitUri(requestUri);
       if(_method == HTTP_ANY || _method == requestMethod) {
         if(_currentSegments.size() != _segments.size()) {
-          Serial.println("SIZE mismatch.");
+          // Serial.println("SIZE mismatch.");
           result = false;
         } else {
           Segment* s;
           for(int i = 0; i < _segments.size(); i++) {
             s = _segments.get(i);
             if(!s->isParam() && !s->check(_currentSegments.get(i))) {
-              Serial.println("SEGMENT mismatch.");
-              Serial.println(s->get());
-              Serial.println(_currentSegments.get(i));
+              // Serial.println("SEGMENT mismatch.");
+              // Serial.println(s->get());
+              // Serial.println(_currentSegments.get(i));
               result = false;
               break;
             }
@@ -236,10 +235,10 @@ class PathSegmentRequestHandler : public RequestHandler {
       if(start <= uri.length()) {
         _currentSegments.add(uri.substring(start));
       }
-      Serial.println("REQUEST SEGMENTS: ");
-      for(int i = 0; i < _currentSegments.size(); i++) {
-        Serial.println((String)i + ": " + _currentSegments.get(i));
-      }
+      // Serial.println("REQUEST SEGMENTS: ");
+      // for(int i = 0; i < _currentSegments.size(); i++) {
+      //   Serial.println((String)i + ": " + _currentSegments.get(i));
+      // }
     }
 
     void cleanup() {
@@ -259,10 +258,12 @@ class Subscription {
     char _url[MAX_CALLBACK_SIZE];
     EventType _type;
     int _timeout;
+    RadDevice *_device;
 
   public:
 
-    Subscription(const char *sid, EventType type, const char *callback, int timeout=0) {
+    Subscription(RadDevice *device, const char *sid, EventType type, const char *callback, int timeout=0) {
+      _device = device;
       _type = type;
       _timeout = timeout;
       strncpy(_sid, sid, sizeof(_sid));
@@ -274,7 +275,7 @@ class Subscription {
     char *getSid() { return _sid; };
     char *getCallback() { return _callback; };
     char *getUrl() { return _url; };
-
+    RadDevice *getDevice() { return _device; };
 };
 
 
@@ -282,8 +283,9 @@ class RadDevice {
 
   private:
 
-    DeviceType _name;
-    const char *_id;
+    DeviceType _type;
+    const char *_name;
+    uint8_t _id;
     uint8_t _subscription_count;
 
     SET_FP _set_callback;
@@ -293,7 +295,7 @@ class RadDevice {
 
   public:
 
-    RadThing(DeviceType type, const char *name);
+    RadDevice(DeviceType type, const char *name);
 
     DeviceType getType() { return _type; };
     const char *getName() { return _name; };
@@ -318,12 +320,10 @@ class RadConnect
 
     const char *_name;
     bool _started;
-    LinkedList<RadThing*> _things;
+    LinkedList<RadDevice*> _devices;
+    LinkedList<Subscription*> _subscriptions;
     char _uuid[SSDP_UUID_SIZE];
     ESP8266WebServer _http;
-
-    StaticJsonBuffer<1024> _thingsBuffer;
-    char _thingsString[1024];
 
     // HTTP Path Handler Functions
     void handleInfo(void);
@@ -343,11 +343,13 @@ class RadConnect
 
     RadConnect(const char *name);
 
-    void add(RadThing *thing);
+    void add(RadDevice *device);
+    void add(Subscription *subscription);
+    void remove(Subscription *subscription);
     bool begin(void);
     void update(void);
 
-    RadThing *getThing(const char *name);
+    RadDevice *getDevice(const char *name);
 
 };
 
