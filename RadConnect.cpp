@@ -112,6 +112,13 @@ bool RadConnect::begin(void) {
   (uint16_t) ((chipId >>  8) & 0xff),
   (uint16_t)   chipId        & 0xff);
 
+  char buffer[512];
+  sprintf(buffer, _info_template,
+    _name,
+    _uuid
+  );
+  _info = String(buffer);
+
   Serial.println("ChipId: ");
   Serial.println(chipId);
   Serial.println((uint16_t) ((chipId >> 16) & 0xff));
@@ -185,10 +192,7 @@ void RadConnect::on(const char* uri, HTTPMethod method, PATH_FP fn) {
 void RadConnect::handleInfo(void) {
   Serial.println("/");
   if(_http.method() == HTTP_GET) {
-    _http.client().printf(_ssdp_schema_template,
-      _name,
-      _uuid
-    );
+    _http.send(200, "application/json", _info);
   } else {
     _http.send(405);
   }
@@ -283,41 +287,61 @@ void RadConnect::handleSubscriptions(void) {
 
 
 void RadConnect::handleDeviceCommands(LinkedList<String>& segments) {
-  Serial.println("/devices/{}/commands");
-  for(int i = 0; i < segments.size(); i++) {
-    Serial.print("Segment " + (String)i + ": ");
-    Serial.println(segments.get(i));
-  }
-  _http.send(200, "application/json", "/devices/{}/commands");
-  return;
-
+  String device_name = segments.get(0);
+  RadDevice *device = getDevice(device_name.c_str());
   int code = 200;
+  uint8_t value;
   String message = "";
-  if(_http.arg("name") == "" || _http.arg("type") == "") {
-    code = 400;
-    message = "{\"error\": \"Missing required parameter(s): 'name' and/or 'type'\"}";
-  } else {
-    if(_http.arg("type") == "set") {
-      if(_http.arg("value") == "") {
-        code = 400;
-        message = "{\"error\": \"Missing required parameter(s): 'value'\"}";
-      } else if(execute(_http.arg("name").c_str(), Set, atoi(_http.arg("value").c_str()))) {
-        code = 200;
-        message = "{\"result\": true}";
-      } else {
-        code = 500;
-      }
-    } else if(_http.arg("type") == "get") {
-      uint8_t value = execute(_http.arg("name").c_str(), Get);
-      char buff[100];
-      snprintf(buff, sizeof(buff), "{\"value\": %d}", value);
-      message = buff;
-    } else {
+  if(device == NULL) {
+    _http.send(404);
+  } else if(_http.method() == HTTP_POST) {
+    StaticJsonBuffer<255> jsonBuffer;
+    JsonObject& root = jsonBuffer.parseObject(_http.arg("plain"));
+    if(!root.containsKey("type")) {
       code = 400;
-      message = "{\"error\": \"Unsuported command type.\"}";
+      message = "{\"error\": \"Missing required property, 'type'.\"}";
+    } else {
+      CommandType type = getCommandType(root["type"]);
+      switch(type) {
+        case Set:
+          if(!root.containsKey("data")) {
+            code = 400;
+            message = "{\"error\": \"Missing required property, 'data'.\"}";
+          } else {
+            JsonObject& data = root["data"].asObject();
+            if(data == JsonObject::invalid()) {
+              code = 400;
+              message = "{\"error\": \"Property 'data' must be an object.\"}";
+            } else if(!data.containsKey("value")) {
+                code = 400;
+                message = "{\"error\": \"Missing required property, 'value'.\"}";
+            } else {
+              value = data["value"];
+              bool result = execute(device, Set, value);
+              if(result) {
+                message = "{\"result\": true}";
+              } else {
+                code = 500;
+              }
+            }
+          }
+          break;
+        case Get:
+          value = execute(device, Get);
+          char buff[100];
+          snprintf(buff, sizeof(buff), "{\"value\": %d}", value);
+          message = buff;
+          break;
+        default:
+          code = 400;
+          message = "{\"error\": \"Unsuported command type.\"}";
+          break;
+      }
     }
+    _http.send(code, "application/json", message);
+  } else {
+    _http.send(405);
   }
-  _http.send(code, "application/json", message);
 }
 
 
@@ -348,9 +372,14 @@ uint8_t RadConnect::execute(const char* name, CommandType command_type) {
   for(int i = 0; i < _devices.size(); i++) {
     device = _devices.get(i);
     if(strcmp(device->getName(), name) == 0) {
-      return device->execute(command_type);
+      return execute(device, command_type);
     }
   }
+}
+
+
+uint8_t RadConnect::execute(RadDevice* device, CommandType command_type) {
+  return device->execute(command_type);
 }
 
 
@@ -359,9 +388,14 @@ bool RadConnect::execute(const char* name, CommandType command_type, uint8_t val
   for(int i = 0; i < _devices.size(); i++) {
     device = _devices.get(i);
     if(strcmp(device->getName(), name) == 0) {
-      return device->execute(command_type, value);
+      return execute(device, command_type, value);
     }
   }
+}
+
+
+bool RadConnect::execute(RadDevice* device, CommandType command_type, uint8_t value) {
+  return device->execute(command_type, value);
 }
 
 

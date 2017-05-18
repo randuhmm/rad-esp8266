@@ -77,12 +77,7 @@ typedef uint8_t (* GET_FP)(void);
 typedef std::function<void(LinkedList<String>&)> PATH_FP;
 class RadDevice;
 
-static const char* _ssdp_schema_template =
-  "HTTP/1.1 200 OK\r\n"
-  "Content-Type: application/json\r\n"
-  "Connection: close\r\n"
-  "Access-Control-Allow-Origin: *\r\n"
-  "\r\n"
+static const char* _info_template =
   "{\r\n"
   "    \"name\": \"%s\",\r\n"
   "    \"type\": \"" RAD_DEVICE_TYPE "\",\r\n"
@@ -323,6 +318,7 @@ class RadConnect
     LinkedList<RadDevice*> _devices;
     LinkedList<Subscription*> _subscriptions;
     char _uuid[SSDP_UUID_SIZE];
+    String _info;
     ESP8266WebServer _http;
 
     // HTTP Path Handler Functions
@@ -334,7 +330,9 @@ class RadConnect
     void handleSubscription(LinkedList<String>& segments);
 
     uint8_t execute(const char* name, CommandType command_type);
+    uint8_t execute(RadDevice* device, CommandType command_type);
     bool execute(const char* name, CommandType command_type, uint8_t value);
+    bool execute(RadDevice* device, CommandType command_type, uint8_t value);
 
     void on(const char* uri, PATH_FP fn);
     void on(const char* uri, HTTPMethod method, PATH_FP fn);

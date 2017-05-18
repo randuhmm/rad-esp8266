@@ -220,11 +220,8 @@ definitions:
       $ref: '#/definitions/Command'
   NewCommand:
     required:
-      - device_name
       - type
     properties:
-      device_name:
-        type: string
       type:
         type: string
       data:
