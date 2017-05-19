@@ -501,7 +501,7 @@ void RadDevice::send(EventType event_type, uint8_t value) {
       Serial.println(s->getCallback());
 
       HTTPClient http;
-      http.begin(s->getUrl());
+      http.begin(s->getCallback());
       http.addHeader("SID", s->getSid());
       http.addHeader("RAD-NAME", _name);
       http.addHeader("Content-Type", "application/json");
@@ -526,5 +526,10 @@ void RadDevice::add(Subscription* subscription) {
 
 
 void RadDevice::remove(Subscription* subscription) {
-  //_subscriptions.add(subscription);
+  for(int i = 0; i < _subscriptions.size(); i++) {
+    if(_subscriptions.get(i) == subscription) {
+      _subscriptions.remove(i);
+      break;
+    }
+  }
 }

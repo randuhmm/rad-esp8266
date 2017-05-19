@@ -250,7 +250,6 @@ class Subscription {
 
     char _sid[SSDP_UUID_SIZE];
     char _callback[MAX_CALLBACK_SIZE];
-    char _url[MAX_CALLBACK_SIZE];
     EventType _type;
     int _timeout;
     RadDevice* _device;
@@ -263,13 +262,10 @@ class Subscription {
       _timeout = timeout;
       strncpy(_sid, sid, sizeof(_sid));
       strncpy(_callback, callback, sizeof(_callback));
-      memset(_url, 0, sizeof(_url));
-      strncpy(_url, &callback[1], strlen(callback) - 2);
     };
     EventType getType() { return _type; };
     char* getSid() { return _sid; };
     char* getCallback() { return _callback; };
-    char* getUrl() { return _url; };
     RadDevice* getDevice() { return _device; };
 };
 
