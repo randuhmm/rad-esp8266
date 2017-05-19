@@ -87,19 +87,49 @@ static const char* HEADERS[] = {
 };
 
 
-RadConnect::RadConnect(const char *name) {
+RadConnect::RadConnect(const char* name) {
   _name = name;
   _http = ESP8266WebServer(RAD_HTTP_PORT);
 }
 
 
-void RadConnect::add(RadDevice *device) {
+void RadConnect::add(RadDevice* device) {
   _devices.add(device);
 }
 
 
-void RadConnect::add(Subscription *s) {
+Subscription* RadConnect::subscribe(RadDevice* device, EventType type,
+                                    const char* callback, int timeout=0) {
+  Subscription* s;
+  for(int i = 0; i < _subscriptions.size(); i++) {
+    s = _subscriptions.get(i);
+    if(s->getType() == type && strcmp(s->getCallback(), callback) == 0) {
+      Serial.print("Deleting Subscription: ");
+      Serial.println(s->getSid());
+      _subscriptions.remove(i);
+      device->remove(s);
+      delete s;
+      i -= 1;
+    }
+  }
+
+  _subscription_count += 1;
+  char sid[SSDP_UUID_SIZE];
+  uint32_t chipId = ESP.getChipId();
+  sprintf(sid, "38323636-4558-4dda-9188-cd%02x%02x%02x%02x%02x",
+  (uint16_t) ((chipId >> 16) & 0xff),
+  (uint16_t) ((chipId >>  8) & 0xff),
+  (uint16_t)   chipId        & 0xff ,
+              _id,
+              _subscription_count);
+  Subscription* subscription = new Subscription(this, sid, type, callback, timeout);
+  _subscriptions.add(subscription);
+  Serial.print("SID: ");
+  Serial.println(sid);
+  return subscription;
+
   _subscriptions.add(s);
+  return s;
 }
 
 
@@ -167,7 +197,7 @@ void RadConnect::update(void) {
 }
 
 
-RadDevice *RadConnect::getDevice(const char *name) {
+RadDevice* RadConnect::getDevice(const char* name) {
   RadDevice* device = NULL;
   for(int i = 0; i < _devices.size(); i++) {
     if(strcmp(_devices.get(i)->getName(), name) == 0) {
@@ -263,7 +293,7 @@ void RadConnect::handleSubscriptions(void) {
       EventType type = getEventType(root["type"]);
       const char* callback = root["callback"];
       int timeout = root["timeout"];
-      RadDevice *device = getDevice(device_name);
+      RadDevice* device = getDevice(device_name);
       if (device == NULL) {
         code = 400;
         message = "{\"error\": \"Device could not be located.\"}";
@@ -271,8 +301,9 @@ void RadConnect::handleSubscriptions(void) {
         code = 400;
         message = "{\"error\": \"Unsuported event type.\"}";
       } else {
-        Subscription *subscription = device->subscribe(type, callback);
-        add(subscription);
+        // Subscription* subscription = device->subscribe(type, callback);
+        // add(subscription);
+        Subscription* subscription = subscribe(device, type, callback);
         char sid[100];
         snprintf(sid, sizeof(sid), "uuid:%s", subscription->getSid());
         _http.sendHeader("SID", sid);
@@ -288,7 +319,7 @@ void RadConnect::handleSubscriptions(void) {
 
 void RadConnect::handleDeviceCommands(LinkedList<String>& segments) {
   String device_name = segments.get(0);
-  RadDevice *device = getDevice(device_name.c_str());
+  RadDevice* device = getDevice(device_name.c_str());
   int code = 200;
   uint8_t value;
   String message = "";
@@ -399,7 +430,7 @@ bool RadConnect::execute(RadDevice* device, CommandType command_type, uint8_t va
 }
 
 
-RadDevice::RadDevice(DeviceType type, const char *name) {
+RadDevice::RadDevice(DeviceType type, const char* name) {
   _type = type;
   _name = name;
   _set_callback = NULL;
@@ -453,7 +484,7 @@ void RadDevice::send(EventType event_type) {
 
 
 void RadDevice::send(EventType event_type, uint8_t value) {
-  Subscription *s;
+  Subscription* s;
   String message = "";
   switch(event_type) {
     case State:
@@ -492,32 +523,6 @@ void RadDevice::send(EventType event_type, uint8_t value) {
 }
 
 
-Subscription *RadDevice::subscribe(EventType type, const char *callback, int timeout) {
-
-  Subscription *s;
-  for(int i = 0; i < _subscriptions.size(); i++) {
-    s = _subscriptions.get(i);
-    if(s->getType() == type && strcmp(s->getCallback(), callback) == 0) {
-      Serial.print("Deleting Subscription: ");
-      Serial.println(s->getSid());
-      _subscriptions.remove(i);
-      delete s;
-      i -= 1;
-    }
-  }
-
-  _subscription_count += 1;
-  char sid[SSDP_UUID_SIZE];
-  uint32_t chipId = ESP.getChipId();
-  sprintf(sid, "38323636-4558-4dda-9188-cd%02x%02x%02x%02x%02x",
-  (uint16_t) ((chipId >> 16) & 0xff),
-  (uint16_t) ((chipId >>  8) & 0xff),
-  (uint16_t)   chipId        & 0xff ,
-              _id,
-              _subscription_count);
-  Subscription *subscription = new Subscription(this, sid, type, callback, timeout);
-  _subscriptions.add(subscription);
-  Serial.print("SID: ");
-  Serial.println(sid);
-  return subscription;
+void RadDevice::add(Subscription* s) {
+  _subscriptions.add(s);
 }

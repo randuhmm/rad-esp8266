@@ -253,11 +253,11 @@ class Subscription {
     char _url[MAX_CALLBACK_SIZE];
     EventType _type;
     int _timeout;
-    RadDevice *_device;
+    RadDevice* _device;
 
   public:
 
-    Subscription(RadDevice *device, const char *sid, EventType type, const char *callback, int timeout=0) {
+    Subscription(RadDevice* device, const char* sid, EventType type, const char* callback, int timeout=0) {
       _device = device;
       _type = type;
       _timeout = timeout;
@@ -267,10 +267,10 @@ class Subscription {
       strncpy(_url, &callback[1], strlen(callback) - 2);
     };
     EventType getType() { return _type; };
-    char *getSid() { return _sid; };
-    char *getCallback() { return _callback; };
-    char *getUrl() { return _url; };
-    RadDevice *getDevice() { return _device; };
+    char* getSid() { return _sid; };
+    char* getCallback() { return _callback; };
+    char* getUrl() { return _url; };
+    RadDevice* getDevice() { return _device; };
 };
 
 
@@ -279,7 +279,7 @@ class RadDevice {
   private:
 
     DeviceType _type;
-    const char *_name;
+    const char* _name;
     uint8_t _id;
     uint8_t _subscription_count;
 
@@ -290,10 +290,10 @@ class RadDevice {
 
   public:
 
-    RadDevice(DeviceType type, const char *name);
+    RadDevice(DeviceType type, const char* name);
 
     DeviceType getType() { return _type; };
-    const char *getName() { return _name; };
+    const char* getName() { return _name; };
 
     void callback(CommandType command_type, SET_FP func) { _set_callback = func; };
     void callback(CommandType command_type, GET_FP func) { _get_callback = func; };
@@ -304,7 +304,7 @@ class RadDevice {
     void send(EventType event_type);
     void send(EventType event_type, uint8_t value);
 
-    Subscription *subscribe(EventType type, const char *callback, int timeout=0);
+    Subscription* subscribe(EventType type, const char* callback, int timeout=0);
 };
 
 
@@ -313,7 +313,7 @@ class RadConnect
 
   private:
 
-    const char *_name;
+    const char* _name;
     bool _started;
     LinkedList<RadDevice*> _devices;
     LinkedList<Subscription*> _subscriptions;
@@ -339,15 +339,18 @@ class RadConnect
 
   public:
 
-    RadConnect(const char *name);
+    RadConnect(const char* name);
 
-    void add(RadDevice *device);
-    void add(Subscription *subscription);
-    void remove(Subscription *subscription);
+    void add(RadDevice* device);
+
+    Subscription* subscribe(RadDevice* device, EventType type,
+                            const char* callback, int timeout=0);
+    void unsubscribe(Subscription* subscription);
+
     bool begin(void);
     void update(void);
 
-    RadDevice *getDevice(const char *name);
+    RadDevice* getDevice(const char* name);
 
 };
 
