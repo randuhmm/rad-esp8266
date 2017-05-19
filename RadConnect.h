@@ -257,7 +257,7 @@ class Subscription {
 
   public:
 
-    Subscription(RadDevice* device, const char* sid, EventType type, const char* callback, int timeout=0) {
+    Subscription(RadDevice* device, const char* sid, EventType type, const char* callback, int timeout) {
       _device = device;
       _type = type;
       _timeout = timeout;
@@ -280,8 +280,6 @@ class RadDevice {
 
     DeviceType _type;
     const char* _name;
-    uint8_t _id;
-    uint8_t _subscription_count;
 
     SET_FP _set_callback;
     GET_FP _get_callback;
@@ -304,7 +302,8 @@ class RadDevice {
     void send(EventType event_type);
     void send(EventType event_type, uint8_t value);
 
-    Subscription* subscribe(EventType type, const char* callback, int timeout=0);
+    void add(Subscription* subscription);
+    void remove(Subscription* subscription);
 };
 
 
@@ -320,6 +319,7 @@ class RadConnect
     char _uuid[SSDP_UUID_SIZE];
     String _info;
     ESP8266WebServer _http;
+    uint8_t _subscription_count;
 
     // HTTP Path Handler Functions
     void handleInfo(void);

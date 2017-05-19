@@ -90,6 +90,7 @@ static const char* HEADERS[] = {
 RadConnect::RadConnect(const char* name) {
   _name = name;
   _http = ESP8266WebServer(RAD_HTTP_PORT);
+  _subscription_count = 0;
 }
 
 
@@ -99,7 +100,7 @@ void RadConnect::add(RadDevice* device) {
 
 
 Subscription* RadConnect::subscribe(RadDevice* device, EventType type,
-                                    const char* callback, int timeout=0) {
+                                    const char* callback, int timeout) {
   Subscription* s;
   for(int i = 0; i < _subscriptions.size(); i++) {
     s = _subscriptions.get(i);
@@ -116,20 +117,17 @@ Subscription* RadConnect::subscribe(RadDevice* device, EventType type,
   _subscription_count += 1;
   char sid[SSDP_UUID_SIZE];
   uint32_t chipId = ESP.getChipId();
-  sprintf(sid, "38323636-4558-4dda-9188-cd%02x%02x%02x%02x%02x",
+  sprintf(sid, "38323636-4558-4dda-9188-cd%02x%02x%02x%04x",
   (uint16_t) ((chipId >> 16) & 0xff),
   (uint16_t) ((chipId >>  8) & 0xff),
   (uint16_t)   chipId        & 0xff ,
-              _id,
               _subscription_count);
-  Subscription* subscription = new Subscription(this, sid, type, callback, timeout);
+  Subscription* subscription = new Subscription(device, sid, type, callback, timeout);
   _subscriptions.add(subscription);
+  device->add(subscription);
   Serial.print("SID: ");
   Serial.println(sid);
   return subscription;
-
-  _subscriptions.add(s);
-  return s;
 }
 
 
@@ -435,7 +433,6 @@ RadDevice::RadDevice(DeviceType type, const char* name) {
   _name = name;
   _set_callback = NULL;
   _get_callback = NULL;
-  _subscription_count = 0;
 }
 
 
@@ -523,6 +520,11 @@ void RadDevice::send(EventType event_type, uint8_t value) {
 }
 
 
-void RadDevice::add(Subscription* s) {
-  _subscriptions.add(s);
+void RadDevice::add(Subscription* subscription) {
+  _subscriptions.add(subscription);
+}
+
+
+void RadDevice::remove(Subscription* subscription) {
+  //_subscriptions.add(subscription);
 }
