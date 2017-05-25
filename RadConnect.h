@@ -19,11 +19,11 @@
 #include <ESP8266HTTPClient.h>
 #include <ESP8266SSDP.h>
 #include <ESP8266WebServer.h>
+#include <FS.h>
 #include <LinkedList.h>
 
-//#include <detail/RequestHandler.h>
-
 #define MAX_CALLBACK_SIZE 255
+#define RAD_MIN_TIMEOUT 600
 
 #define RAD_HTTP_PORT 8080
 #define RAD_DEVICE_TYPE "urn:rad:device:esp8266:1"
@@ -37,6 +37,7 @@
 #define RAD_COMMANDS_PATH "/commands"
 #define RAD_EVENTS_PATH "/events"
 
+#define RAD_SPIFFS_SUBSCRIPTIONS_PATH "/rad/subscriptions"
 
 #define HEADER_HOST      "HOST"
 #define HEADER_CALLBACK  "CALLBACK"
@@ -252,6 +253,8 @@ class Subscription {
     char _callback[MAX_CALLBACK_SIZE];
     EventType _type;
     int _timeout;
+    long _started;
+    long _end;
     RadDevice* _device;
 
   public:
@@ -260,13 +263,20 @@ class Subscription {
       _device = device;
       _type = type;
       _timeout = timeout;
+      _started = millis();
+      _end = _started + timeout * 1000;
       strncpy(_sid, sid, sizeof(_sid));
       strncpy(_callback, callback, sizeof(_callback));
     };
     EventType getType() { return _type; };
     char* getSid() { return _sid; };
     char* getCallback() { return _callback; };
+    int getTimeout() { return _timeout; };
+    int getDuration(long current) { return (current - _started) / 1000; }
     RadDevice* getDevice() { return _device; };
+    bool isActive(long current) {
+      return _end > current;
+    }
 };
 
 
@@ -340,7 +350,7 @@ class RadConnect
     void add(RadDevice* device);
 
     Subscription* subscribe(RadDevice* device, EventType type,
-                            const char* callback, int timeout=0);
+                            const char* callback, int timeout=RAD_MIN_TIMEOUT);
     void unsubscribe(Subscription* subscription);
 
     bool begin(void);

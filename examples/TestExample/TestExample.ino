@@ -5,16 +5,17 @@
 #include <ESP8266SSDP.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266WiFi.h>
+#include <FS.h>
 #include <LinkedList.h>
 #include <RadConnect.h>
 #include <Ticker.h>
 #include <WiFiManager.h>
 #include <WiFiUdp.h>
 
-//for LED status
+// For LED status indicator
 Ticker ticker;
 
-// Rad variables
+// RAD variables
 RadConnect radConnect("MyESP");
 RadDevice switch_1(SwitchBinary, "switch_1");
 const int SWITCH_1_PIN = 2;
@@ -22,8 +23,7 @@ const uint8_t SWITCH_ON = 255;
 const uint8_t SWITCH_OFF = 0;
 uint8_t switch_one_state = SWITCH_OFF;
 
-
-// State variables for input button
+// State variables for momentary push button
 const int CMD_WAIT = 0;
 const int CMD_BUTTON_CHANGE = 1;
 const int BUTTON_PIN = 0;
@@ -147,6 +147,7 @@ void setup() {
   pinMode(SWITCH_1_PIN, OUTPUT);
   digitalWrite(SWITCH_1_PIN, HIGH);
 
+  // Wait 1 second before starting Serial
   delay(1000);
   Serial.begin(115200);
   Serial.print("setup");

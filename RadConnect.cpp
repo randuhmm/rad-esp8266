@@ -133,6 +133,19 @@ Subscription* RadConnect::subscribe(RadDevice* device, EventType type,
 
 bool RadConnect::begin(void) {
 
+  // Start the SPIFFS object
+  SPIFFS.begin();
+
+  // Load the existing subscriptions from SPIFFS
+  if(SPIFFS.exists(RAD_SPIFFS_SUBSCRIPTIONS_PATH)) {
+    Dir dir = SPIFFS.openDir(RAD_SPIFFS_SUBSCRIPTIONS_PATH);
+    while (dir.next()) {
+      Serial.print(dir.fileName());
+      File f = dir.openFile("r");
+      Serial.println(f.size());
+    }
+  }
+
   // Prepare the uuid
   uint32_t chipId = ESP.getChipId();
   sprintf(_uuid, "38323636-4558-4dda-9188-cda0e6%02x%02x%02x",
@@ -254,6 +267,7 @@ void RadConnect::handleDevices(void) {
 void RadConnect::handleSubscriptions(void) {
   Serial.println("/subscriptions");
   int code = 200;
+  long current = millis();
   if(_http.method() == HTTP_GET) {
     // Prepare the JSON response
     StaticJsonBuffer<1024> subscriptionsBuffer;
@@ -263,13 +277,16 @@ void RadConnect::handleSubscriptions(void) {
     Subscription* subscription;
     for(int i = 0; i < _subscriptions.size(); i++) {
       subscription = _subscriptions.get(i);
-      device = subscription->getDevice();
-      JsonObject& subscription_json = subscriptions.createNestedObject();
-      subscription_json["id"] = subscription->getSid();
-      subscription_json["device_name"] = device->getName();
-      subscription_json["type"] = sendEventType(subscription->getType());
-      subscription_json["callback"] = subscription->getCallback();
-      subscription_json["timeout"] = 0;
+      if(subscription->isActive(current)) {
+        device = subscription->getDevice();
+        JsonObject& subscription_json = subscriptions.createNestedObject();
+        subscription_json["id"] = subscription->getSid();
+        subscription_json["device_name"] = device->getName();
+        subscription_json["type"] = sendEventType(subscription->getType());
+        subscription_json["callback"] = subscription->getCallback();
+        subscription_json["timeout"] = subscription->getTimeout();
+        subscription_json["duration"] = subscription->getDuration(current);
+      }
     }
     subscriptions.printTo(subscriptionsString, sizeof(subscriptionsString));
     _http.send(code, "application/json", subscriptionsString);
@@ -290,7 +307,10 @@ void RadConnect::handleSubscriptions(void) {
       const char* device_name = root["device_name"];
       EventType type = getEventType(root["type"]);
       const char* callback = root["callback"];
-      int timeout = root["timeout"];
+      int timeout = RAD_MIN_TIMEOUT;
+      if(root.containsKey("timeout")) {
+        timeout = root["timeout"];
+      }
       RadDevice* device = getDevice(device_name);
       if (device == NULL) {
         code = 400;
@@ -298,10 +318,13 @@ void RadConnect::handleSubscriptions(void) {
       } else if(type == NullEvent) {
         code = 400;
         message = "{\"error\": \"Unsuported event type.\"}";
+      } else if(timeout < RAD_MIN_TIMEOUT) {
+        code = 400;
+        message = "{\"error\": \"The timeout property can not be less than 600 seconds.\"}";
       } else {
         // Subscription* subscription = device->subscribe(type, callback);
         // add(subscription);
-        Subscription* subscription = subscribe(device, type, callback);
+        Subscription* subscription = subscribe(device, type, callback, timeout);
         char sid[100];
         snprintf(sid, sizeof(sid), "uuid:%s", subscription->getSid());
         _http.sendHeader("SID", sid);
