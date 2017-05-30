@@ -23,7 +23,8 @@
 #include <LinkedList.h>
 
 #define MAX_CALLBACK_SIZE 255
-#define RAD_MIN_TIMEOUT 600
+#define RAD_MIN_TIMEOUT 90
+#define RAD_MIN_WRITE_INTERVAL 60
 
 #define RAD_HTTP_PORT 8080
 #define RAD_DEVICE_TYPE "urn:rad:device:esp8266:1"
@@ -37,7 +38,7 @@
 #define RAD_COMMANDS_PATH "/commands"
 #define RAD_EVENTS_PATH "/events"
 
-#define RAD_SPIFFS_SUBSCRIPTIONS_PATH "/rad/subscriptions"
+#define RAD_SUBSCRIPTIONS_FILE "/rad/subscriptions.json"
 
 #define HEADER_HOST      "HOST"
 #define HEADER_CALLBACK  "CALLBACK"
@@ -74,7 +75,6 @@ typedef unsigned char uint8_t;
 typedef void (* SET_FP)(uint8_t);
 typedef uint8_t (* GET_FP)(void);
 
-// typedef void (* PATH_FP)(LinkedList<String*>&);
 typedef std::function<void(LinkedList<String>&)> PATH_FP;
 class RadDevice;
 
@@ -85,7 +85,7 @@ static const char* _info_template =
   "    \"model\": \"" RAD_MODEL_NAME "\",\r\n"
   "    \"description\": \"Rad ESP8266 WiFi Module for IoT Integration\",\r\n"
   "    \"serial\": \"\",\r\n"
-  "    \"UDN\": \"uuid:%s\",\r\n"
+  "    \"UDN\": \"uuid:%s\"\r\n"
   "}\r\n"
   "\r\n";
 
@@ -150,10 +150,6 @@ class PathSegmentRequestHandler : public RequestHandler {
         segment = new Segment(_uri.substring(start, current).c_str());
         _segments.add(segment);
       }
-      // Serial.println("PATH SEGMENTS: ");
-      // for(int i = 0; i < _segments.size(); i++) {
-      //   Serial.println((String)i + ": " + _segments.get(i)->get());
-      // }
     }
 
     bool canHandle(HTTPMethod requestMethod, String requestUri) override  {
@@ -231,10 +227,6 @@ class PathSegmentRequestHandler : public RequestHandler {
       if(start <= uri.length()) {
         _currentSegments.add(uri.substring(start));
       }
-      // Serial.println("REQUEST SEGMENTS: ");
-      // for(int i = 0; i < _currentSegments.size(); i++) {
-      //   Serial.println((String)i + ": " + _currentSegments.get(i));
-      // }
     }
 
     void cleanup() {
@@ -256,15 +248,19 @@ class Subscription {
     long _started;
     long _end;
     RadDevice* _device;
+    int _calls;
+    int _errors;
 
   public:
 
-    Subscription(RadDevice* device, const char* sid, EventType type, const char* callback, int timeout) {
+    Subscription(RadDevice* device, const char* sid, EventType type, const char* callback, int timeout, int calls=0, int errors=0) {
       _device = device;
       _type = type;
       _timeout = timeout;
       _started = millis();
       _end = _started + timeout * 1000;
+      _calls = calls;
+      _errors = errors;
       strncpy(_sid, sid, sizeof(_sid));
       strncpy(_callback, callback, sizeof(_callback));
     };
@@ -287,8 +283,8 @@ class RadDevice {
     DeviceType _type;
     const char* _name;
 
-    SET_FP _set_callback;
-    GET_FP _get_callback;
+    SET_FP _setCallback;
+    GET_FP _getCallback;
 
     LinkedList<Subscription*> _subscriptions;
 
@@ -299,8 +295,8 @@ class RadDevice {
     DeviceType getType() { return _type; };
     const char* getName() { return _name; };
 
-    void callback(CommandType command_type, SET_FP func) { _set_callback = func; };
-    void callback(CommandType command_type, GET_FP func) { _get_callback = func; };
+    void callback(CommandType command_type, SET_FP func) { _setCallback = func; };
+    void callback(CommandType command_type, GET_FP func) { _getCallback = func; };
 
     uint8_t execute(CommandType command_type);
     bool execute(CommandType command_type, uint8_t value);
@@ -325,7 +321,11 @@ class RadConnect
     char _uuid[SSDP_UUID_SIZE];
     String _info;
     ESP8266WebServer _http;
-    uint8_t _subscription_count;
+
+
+    uint8_t _subscriptionCount;
+    long _lastWrite;
+    bool _subscriptionsChanged;
 
     // HTTP Path Handler Functions
     void handleInfo(void);
@@ -335,11 +335,13 @@ class RadConnect
     void handleDeviceEvents(LinkedList<String>& segments);
     void handleSubscription(LinkedList<String>& segments);
 
+    // Execution Methods
     uint8_t execute(const char* name, CommandType command_type);
     uint8_t execute(RadDevice* device, CommandType command_type);
     bool execute(const char* name, CommandType command_type, uint8_t value);
     bool execute(RadDevice* device, CommandType command_type, uint8_t value);
 
+    // Segment Path Request Registrations
     void on(const char* uri, PATH_FP fn);
     void on(const char* uri, HTTPMethod method, PATH_FP fn);
 
@@ -351,7 +353,7 @@ class RadConnect
 
     Subscription* subscribe(RadDevice* device, EventType type,
                             const char* callback, int timeout=RAD_MIN_TIMEOUT);
-    void unsubscribe(Subscription* subscription);
+    void unsubscribe(int index);
 
     bool begin(void);
     void update(void);

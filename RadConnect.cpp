@@ -90,7 +90,8 @@ static const char* HEADERS[] = {
 RadConnect::RadConnect(const char* name) {
   _name = name;
   _http = ESP8266WebServer(RAD_HTTP_PORT);
-  _subscription_count = 0;
+  _subscriptionCount = 0;
+  _lastWrite = 0;
 }
 
 
@@ -102,32 +103,44 @@ void RadConnect::add(RadDevice* device) {
 Subscription* RadConnect::subscribe(RadDevice* device, EventType type,
                                     const char* callback, int timeout) {
   Subscription* s;
+  RadDevice* d;
   for(int i = 0; i < _subscriptions.size(); i++) {
     s = _subscriptions.get(i);
-    if(s->getType() == type && strcmp(s->getCallback(), callback) == 0) {
-      Serial.print("Deleting Subscription: ");
-      Serial.println(s->getSid());
-      _subscriptions.remove(i);
-      device->remove(s);
-      delete s;
+    d = s->getDevice()
+    if(device == d && s->getType() == type && strcmp(s->getCallback(), callback) == 0) {
+      unsubscribe(i);
       i -= 1;
     }
   }
 
-  _subscription_count += 1;
+  _subscriptionCount += 1;
   char sid[SSDP_UUID_SIZE];
   uint32_t chipId = ESP.getChipId();
   sprintf(sid, "38323636-4558-4dda-9188-cd%02x%02x%02x%04x",
   (uint16_t) ((chipId >> 16) & 0xff),
   (uint16_t) ((chipId >>  8) & 0xff),
   (uint16_t)   chipId        & 0xff ,
-              _subscription_count);
-  Subscription* subscription = new Subscription(device, sid, type, callback, timeout);
-  _subscriptions.add(subscription);
-  device->add(subscription);
+              _subscriptionCount);
+  s = new Subscription(device, sid, type, callback, timeout);
+  _subscriptions.add(s);
+  device->add(s);
+  _subscriptionsChanged = true;
   Serial.print("SID: ");
   Serial.println(sid);
-  return subscription;
+  return s;
+}
+
+
+void RadConnect::unsubscribe(int index) {
+  Subscription* s;
+  s = _subscriptions.get(index);
+  Serial.print("Deleting Subscription: ");
+  Serial.println(s->getSid());
+  _subscriptions.remove(index);
+  RadDevice* device = s->getDevice();
+  device->remove(s);
+  delete s;
+  _subscriptionsChanged = true;
 }
 
 
@@ -137,13 +150,14 @@ bool RadConnect::begin(void) {
   SPIFFS.begin();
 
   // Load the existing subscriptions from SPIFFS
-  if(SPIFFS.exists(RAD_SPIFFS_SUBSCRIPTIONS_PATH)) {
-    Dir dir = SPIFFS.openDir(RAD_SPIFFS_SUBSCRIPTIONS_PATH);
-    while (dir.next()) {
-      Serial.print(dir.fileName());
-      File f = dir.openFile("r");
-      Serial.println(f.size());
-    }
+  if(SPIFFS.exists(RAD_SUBSCRIPTIONS_FILE)) {
+    // TODO: Load subscriptions file
+    // Dir dir = SPIFFS.openDir(RAD_SUBSCRIPTIONS_FILE);
+    // while (dir.next()) {
+    //   Serial.print(dir.fileName());
+    //   File f = dir.openFile("r");
+    //   Serial.println(f.size());
+    // }
   }
 
   // Prepare the uuid
@@ -190,7 +204,7 @@ bool RadConnect::begin(void) {
   SSDP.setDeviceType(RAD_DEVICE_TYPE);
   SSDP.setName(_name);
   SSDP.setURL("");
-  SSDP.setSchemaURL(RAD_INFO_PATH);
+  SSDP.setSchemaURL("");
   SSDP.setSerialNumber(WiFi.macAddress());
   SSDP.setModelName(RAD_MODEL_NAME);
   SSDP.setModelNumber(RAD_MODEL_NUM);
@@ -205,6 +219,27 @@ bool RadConnect::begin(void) {
 void RadConnect::update(void) {
   // loop
   _http.handleClient();
+
+  long current = millis();
+  // Check for expired subscriptions
+  Subscription* s;
+  for(int i = 0; i < _subscriptions.size(); i++) {
+    s = _subscriptions.get(i);
+    if(!s->isActive(current)) {
+      Serial.println("Found expired subscription!");
+      unsubscribe(i);
+      i -= 1;
+    }
+  }
+
+  // Check to see if we need to write to SPIFFS
+  if(_subscriptionsChanged && current - _lastWrite >= RAD_MIN_WRITE_INTERVAL) {
+    // TODO: Write subscriptions to file
+    Serial.println("Writing subscriptions to file!");
+    _lastWrite = current;
+    _subscriptionsChanged = false;
+  }
+
 }
 
 
@@ -454,8 +489,8 @@ bool RadConnect::execute(RadDevice* device, CommandType command_type, uint8_t va
 RadDevice::RadDevice(DeviceType type, const char* name) {
   _type = type;
   _name = name;
-  _set_callback = NULL;
-  _get_callback = NULL;
+  _setCallback = NULL;
+  _getCallback = NULL;
 }
 
 
@@ -466,7 +501,7 @@ uint8_t RadDevice::execute(CommandType command_type) {
       GET_FP get = NULL;
       switch(_type) {
         case SwitchBinary:
-          get = _get_callback;
+          get = _getCallback;
         break;
       }
       if(get != NULL) {
@@ -485,7 +520,7 @@ bool RadDevice::execute(CommandType command_type, uint8_t value) {
       SET_FP set = NULL;
       switch(_type) {
         case SwitchBinary:
-          set = _set_callback;
+          set = _setCallback;
         break;
       }
       if(set != NULL) {
