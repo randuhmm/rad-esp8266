@@ -1,4 +1,4 @@
-#include "RadConnect.h"
+#include "RadEsp8266.h"
 
 
 DeviceType getDeviceType(const char* s) {
@@ -106,7 +106,7 @@ Subscription* RadConnect::subscribe(RadDevice* device, EventType type,
   RadDevice* d;
   for(int i = 0; i < _subscriptions.size(); i++) {
     s = _subscriptions.get(i);
-    d = s->getDevice()
+    d = s->getDevice();
     if(device == d && s->getType() == type && strcmp(s->getCallback(), callback) == 0) {
       unsubscribe(i);
       i -= 1;
