@@ -1,4 +1,6 @@
+
 language: c
+
 before_install:
   - "/sbin/start-stop-daemon --start --quiet --pidfile /tmp/custom_xvfb_1.pid --make-pidfile --background --exec /usr/bin/Xvfb -- :1 -ac -screen 0 1280x1024x16"
   - sleep 3
@@ -7,6 +9,7 @@ before_install:
   - tar xf arduino-1.6.5-linux64.tar.xz
   - sudo mv arduino-1.6.5 /usr/local/share/arduino
   - sudo ln -s /usr/local/share/arduino/arduino /usr/local/bin/arduino
+
 install:
   - ln -s $PWD /usr/local/share/arduino/libraries/rad-esp8266
 # boards manager not working on 1.6.7 - 1.6.8
@@ -17,6 +20,7 @@ install:
   - arduino --install-boards esp8266:esp8266
   - arduino --board esp8266:esp8266:generic --save-prefs
   - arduino --pref "compiler.warning_level=all" --save-prefs
+
 script:
   - "echo $PWD"
   - "echo $HOME"
@@ -27,8 +31,10 @@ script:
 #  - arduino -v --verbose-build --verify $PWD/examples/AutoConnect/AutoConnect.ino
 #  - arduino --verify --board arduino:avr:uno $PWD/examples/IncomingCall/IncomingCall.ino
 #  - arduino --verify --board arduino:avr:uno $PWD/examples/AdafruitIO_GPS/AdafruitIO_GPS.ino
+
 after_success:
   - echo "Done"
+
 notifications:
   email:
     on_success: change
