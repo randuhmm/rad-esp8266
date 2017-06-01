@@ -25,8 +25,8 @@ script:
   - "echo $PWD"
   - "echo $HOME"
   - "ls $PWD"
-#  - source $TRAVIS_BUILD_DIR/travis/common.sh
-#  - build_examples
+  - source $TRAVIS_BUILD_DIR/travis/common.sh
+  - build_examples
 #  - "cat $PWD/examples/AutoConnect/AutoConnect.ino"
 #  - arduino -v --verbose-build --verify $PWD/examples/AutoConnect/AutoConnect.ino
 #  - arduino --verify --board arduino:avr:uno $PWD/examples/IncomingCall/IncomingCall.ino
