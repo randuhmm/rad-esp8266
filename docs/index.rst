@@ -10,7 +10,9 @@ Welcome to rad-esp8266's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   overview
    specs
+   history
 
 
 Indices and tables
