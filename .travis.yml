@@ -17,6 +17,8 @@ install:
 # install lib arduino json not working in 1.6.5
 #  - arduino --install-library "ArduinoJson"
   - git clone https://github.com/bblanchon/ArduinoJson /usr/local/share/arduino/libraries/ArduinoJson
+  - git clone https://github.com/ivanseidel/LinkedList /usr/local/share/arduino/libraries/LinkedList
+  - git clone https://github.com/tzapu/WiFiManager /usr/local/share/arduino/libraries/WiFiManager
   - arduino --install-boards esp8266:esp8266
   - arduino --board esp8266:esp8266:generic --save-prefs
   - arduino --pref "compiler.warning_level=all" --save-prefs
@@ -25,8 +27,8 @@ script:
   - "echo $PWD"
   - "echo $HOME"
   - "ls $PWD"
-#  - source $TRAVIS_BUILD_DIR/travis/common.sh
-#  - build_examples
+  - source $TRAVIS_BUILD_DIR/travis/common.sh
+  - build_examples
 #  - "cat $PWD/examples/AutoConnect/AutoConnect.ino"
 #  - arduino -v --verbose-build --verify $PWD/examples/AutoConnect/AutoConnect.ino
 #  - arduino --verify --board arduino:avr:uno $PWD/examples/IncomingCall/IncomingCall.ino

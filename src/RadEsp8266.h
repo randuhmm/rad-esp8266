@@ -7,13 +7,13 @@
  */
 
 /**
- * @file RadConnect.h
+ * @file RadEsp8266.h
  *
- * Class declaration for RadConnect and helper enums
+ * Class declaration for RadEsp8266 and helper enums
  */
 
-#ifndef __RAD_CONNECT_H__
-#define __RAD_CONNECT_H__
+#ifndef __RAD_ESP8266_H__
+#define __RAD_ESP8266_H__
 
 #include <ArduinoJson.h>
 #include <ESP8266HTTPClient.h>
@@ -363,4 +363,4 @@ class RadConnect
 };
 
 
-#endif // __RAD_CONNECT_H__
+#endif // __RAD_ESP8266_H__
