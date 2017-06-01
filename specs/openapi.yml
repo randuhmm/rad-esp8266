@@ -17,11 +17,19 @@ paths:
       operationId: info
       parameters: []
       responses:
-        '200':
+        200:
           description: Info about the RAD-ESP8266
           schema:
             $ref: '#/definitions/Info'
-        default:
+          examples:
+            aplication/json:
+              name: My RAD Device
+              type: urn:rad:device:esp8266:1
+              model: RAD-ESP8266
+              description: Rad ESP8266 WiFi Module for IoT Integration
+              serial: ABD123
+              UDN: 38323636-4558-4dda-9188-cd1234567890
+        500:
           description: unexpected error
           schema:
             $ref: '#/definitions/Error'
@@ -33,11 +41,11 @@ paths:
         - devices
       parameters: []
       responses:
-        '200':
+        200:
           description: An array of devices
           schema:
             $ref: '#/definitions/Devices'
-        default:
+        500:
           description: unexpected error
           schema:
             $ref: '#/definitions/Error'
@@ -54,11 +62,11 @@ paths:
           description: The id of the device to retrieve commands for
           type: string
       responses:
-        '200':
+        200:
           description: Expected response to a valid request
           schema:
             $ref: '#/definitions/Commands'
-        default:
+        500:
           description: unexpected error
           schema:
             $ref: '#/definitions/Error'
@@ -75,11 +83,11 @@ paths:
           schema:
             $ref: '#/definitions/NewCommand'
       responses:
-        '200':
+        200:
           description: Expected response to a valid request
           schema:
             $ref: '#/definitions/Command'
-        default:
+        500:
           description: unexpected error
           schema:
             $ref: '#/definitions/Error'
@@ -96,11 +104,11 @@ paths:
           description: The id of the device to retrieve events for
           type: string
       responses:
-        '200':
+        200:
           description: Expected response to a valid request
           schema:
             $ref: '#/definitions/Events'
-        default:
+        500:
           description: unexpected error
           schema:
             $ref: '#/definitions/Error'
@@ -111,11 +119,11 @@ paths:
       tags:
         - subscriptions
       responses:
-        '200':
+        200:
           description: Expected response to a valid request
           schema:
             $ref: '#/definitions/Subscriptions'
-        default:
+        500:
           description: unexpected error
           schema:
             $ref: '#/definitions/Error'
@@ -134,7 +142,7 @@ paths:
       responses:
         '201':
           description: Null response
-        default:
+        500:
           description: unexpected error
           schema:
             $ref: '#/definitions/Error'
@@ -151,11 +159,11 @@ paths:
           description: The id of the subscription to retrieve
           type: string
       responses:
-        '200':
+        200:
           description: Expected response to a valid request
           schema:
             $ref: '#/definitions/Subscription'
-        default:
+        500:
           description: unexpected error
           schema:
             $ref: '#/definitions/Error'
