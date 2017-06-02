@@ -1,0 +1,1 @@
+https://github.com/galthaus/sphinx-swaggerdoc/archive/master.zip

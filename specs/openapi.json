@@ -1,0 +1,461 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "version": "1.0.0",
+    "title": "RAD-ESP8266",
+    "license": {
+      "name": "MIT"
+    }
+  },
+  "schemes": [
+    "http"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/": {
+      "get": {
+        "summary": "Get info about the RAD-ESP8266",
+        "operationId": "info",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Info about the RAD-ESP8266",
+            "schema": {
+              "$ref": "#/definitions/Info"
+            },
+            "examples": {
+              "application/json": {
+                "name": "My RAD Device",
+                "type": "urn:rad:device:esp8266:1",
+                "model": "RAD-ESP8266",
+                "description": "Rad ESP8266 WiFi Module for IoT Integration",
+                "serial": "ABD123",
+                "UDN": "38323636-4558-4dda-9188-cd1234567890"
+              }
+            }
+          },
+          "500": {
+            "description": "unexpected error",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          }
+        }
+      }
+    },
+    "/devices": {
+      "get": {
+        "summary": "List all devices",
+        "operationId": "listDevice",
+        "tags": [
+          "devices"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "An array of devices",
+            "schema": {
+              "$ref": "#/definitions/Devices"
+            }
+          },
+          "500": {
+            "description": "unexpected error",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          }
+        }
+      }
+    },
+    "/devices/{device_name}/commands": {
+      "get": {
+        "summary": "List all commands",
+        "operationId": "listCommands",
+        "tags": [
+          "commands"
+        ],
+        "parameters": [
+          {
+            "name": "device_name",
+            "in": "path",
+            "required": true,
+            "description": "The id of the device to retrieve commands for",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Expected response to a valid request",
+            "schema": {
+              "$ref": "#/definitions/Commands"
+            }
+          },
+          "500": {
+            "description": "unexpected error",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a command",
+        "operationId": "createCommands",
+        "tags": [
+          "commands"
+        ],
+        "parameters": [
+          {
+            "name": "command",
+            "in": "body",
+            "description": "Command to send to the device",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/NewCommand"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Expected response to a valid request",
+            "schema": {
+              "$ref": "#/definitions/Command"
+            }
+          },
+          "500": {
+            "description": "unexpected error",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          }
+        }
+      }
+    },
+    "/devices/{device_name}/events": {
+      "get": {
+        "summary": "List all events",
+        "operationId": "listEvents",
+        "tags": [
+          "events"
+        ],
+        "parameters": [
+          {
+            "name": "device_name",
+            "in": "path",
+            "required": true,
+            "description": "The id of the device to retrieve events for",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Expected response to a valid request",
+            "schema": {
+              "$ref": "#/definitions/Events"
+            }
+          },
+          "500": {
+            "description": "unexpected error",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          }
+        }
+      }
+    },
+    "/subscriptions": {
+      "get": {
+        "summary": "List all subscriptions",
+        "operationId": "listSubscriptions",
+        "tags": [
+          "subscriptions"
+        ],
+        "responses": {
+          "200": {
+            "description": "Expected response to a valid request",
+            "schema": {
+              "$ref": "#/definitions/Subscriptions"
+            }
+          },
+          "500": {
+            "description": "unexpected error",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a subscription",
+        "operationId": "createSubscriptions",
+        "tags": [
+          "subscriptions"
+        ],
+        "parameters": [
+          {
+            "name": "subscription",
+            "in": "body",
+            "description": "Create a new Subscription",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/NewSubscription"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Null response"
+          },
+          "500": {
+            "description": "unexpected error",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          }
+        }
+      }
+    },
+    "/subscriptions/{subscription_id}": {
+      "get": {
+        "summary": "Get a specific subscription",
+        "operationId": "getSubscriptions",
+        "tags": [
+          "subscriptions"
+        ],
+        "parameters": [
+          {
+            "name": "subscription_id",
+            "in": "path",
+            "required": true,
+            "description": "The id of the subscription to retrieve",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Expected response to a valid request",
+            "schema": {
+              "$ref": "#/definitions/Subscription"
+            }
+          },
+          "500": {
+            "description": "unexpected error",
+            "schema": {
+              "$ref": "#/definitions/Error"
+            }
+          }
+        }
+      }
+    }
+  },
+  "responses": {},
+  "definitions": {
+    "Info": {
+      "required": [
+        "name",
+        "type",
+        "model",
+        "description",
+        "serial",
+        "UDN"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "serial": {
+          "type": "string"
+        },
+        "UDN": {
+          "type": "string"
+        }
+      }
+    },
+    "Device": {
+      "required": [
+        "name",
+        "type"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object"
+        }
+      }
+    },
+    "Devices": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Device"
+      }
+    },
+    "Command": {
+      "required": [
+        "id",
+        "device_name",
+        "type"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "device_name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object"
+        },
+        "result": {
+          "type": "object"
+        }
+      }
+    },
+    "Commands": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Command"
+      }
+    },
+    "NewCommand": {
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object"
+        }
+      }
+    },
+    "Event": {
+      "required": [
+        "device_name",
+        "type"
+      ],
+      "properties": {
+        "device_name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object"
+        }
+      }
+    },
+    "Events": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Event"
+      }
+    },
+    "Subscription": {
+      "required": [
+        "id",
+        "device_name",
+        "type",
+        "callback",
+        "timeout",
+        "duration",
+        "calls",
+        "errors"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "device_name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "callback": {
+          "type": "string"
+        },
+        "timeout": {
+          "type": "integer"
+        },
+        "duration": {
+          "type": "integer"
+        },
+        "calls": {
+          "type": "integer"
+        },
+        "errors": {
+          "type": "integer"
+        }
+      }
+    },
+    "Subscriptions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Subscription"
+      }
+    },
+    "NewSubscription": {
+      "required": [
+        "device_name",
+        "type",
+        "callback"
+      ],
+      "properties": {
+        "device_name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "callback": {
+          "type": "string"
+        },
+        "timeout": {
+          "type": "integer"
+        }
+      }
+    },
+    "Error": {
+      "required": [
+        "code",
+        "message"
+      ],
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

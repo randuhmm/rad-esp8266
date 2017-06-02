@@ -1,0 +1,17 @@
+{
+  "name": "RadEsp8266",
+  "keywords": "esp8266 wifi config",
+  "description": "",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/randuhmm/rad-esp8266"
+  },
+  "version": "1.0",
+  "authors": {
+    "name": "Jonny Morrill",
+    "url": "http://jonny.morrill.me"
+  },
+  "exclude": [],
+  "frameworks": "arduino",
+  "platforms": "*"
+}
