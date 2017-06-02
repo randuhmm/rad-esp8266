@@ -125,8 +125,6 @@ Subscription* RadConnect::subscribe(RadDevice* device, EventType type,
   _subscriptions.add(s);
   device->add(s);
   _subscriptionsChanged = true;
-  Serial.print("SID: ");
-  Serial.println(sid);
   return s;
 }
 
@@ -134,8 +132,6 @@ Subscription* RadConnect::subscribe(RadDevice* device, EventType type,
 void RadConnect::unsubscribe(int index) {
   Subscription* s;
   s = _subscriptions.get(index);
-  Serial.print("Deleting Subscription: ");
-  Serial.println(s->getSid());
   _subscriptions.remove(index);
   RadDevice* device = s->getDevice();
   device->remove(s);
@@ -213,13 +209,13 @@ bool RadConnect::begin(void) {
   _info = String(buffer);
 
   // Debugging...
-  Serial.println("ChipId: ");
-  Serial.println(chipId);
-  Serial.println((uint16_t) ((chipId >> 16) & 0xff));
-  Serial.println((uint16_t) ((chipId >>  8) & 0xff));
-  Serial.println((uint16_t)   chipId        & 0xff);
-  Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());
+  // Serial.println("ChipId: ");
+  // Serial.println(chipId);
+  // Serial.println((uint16_t) ((chipId >> 16) & 0xff));
+  // Serial.println((uint16_t) ((chipId >>  8) & 0xff));
+  // Serial.println((uint16_t)   chipId        & 0xff);
+  // Serial.print("IP address: ");
+  // Serial.println(WiFi.localIP());
 
   // Add the HTTP handlers
   _http.on(RAD_INFO_PATH, std::bind(&RadConnect::handleInfo, this));
@@ -261,7 +257,7 @@ void RadConnect::update(void) {
   for(int i = 0; i < _subscriptions.size(); i++) {
     s = _subscriptions.get(i);
     if(!s->isActive(current)) {
-      Serial.println("Found expired subscription!");
+      //Serial.println("Found expired subscription!");
       unsubscribe(i);
       i -= 1;
     }
@@ -271,7 +267,7 @@ void RadConnect::update(void) {
   // Check to see if we need to write to SPIFFS
   if(_subscriptionsChanged && current - _lastWrite >= RAD_MIN_WRITE_INTERVAL) {
     // TODO: Write subscriptions to file
-    Serial.println("Writing subscriptions to file!");
+    // Serial.println("Writing subscriptions to file!");
     _lastWrite = current;
     _subscriptionsChanged = false;
   }
@@ -471,10 +467,6 @@ void RadConnect::handleDeviceCommands(LinkedList<String>& segments) {
 
 void RadConnect::handleDeviceEvents(LinkedList<String>& segments) {
   Serial.println("/devices/{}/events");
-  for(int i = 0; i < segments.size(); i++) {
-    Serial.print("Segment " + (String)i + ": ");
-    Serial.println(segments.get(i));
-  }
   _http.send(200, "application/json", "/devices/{}/events");
   return;
 }
@@ -482,10 +474,6 @@ void RadConnect::handleDeviceEvents(LinkedList<String>& segments) {
 
 void RadConnect::handleSubscription(LinkedList<String>& segments) {
   Serial.println("/subscriptions/{}");
-  for(int i = 0; i < segments.size(); i++) {
-    Serial.print("Segment " + (String)i + ": ");
-    Serial.println(segments.get(i));
-  }
   _http.send(200, "application/json", "/subscriptions/{}");
   return;
 }
@@ -592,9 +580,6 @@ void RadDevice::send(EventType event_type, uint8_t value) {
   for(int i = 0; i < _subscriptions.size(); i++) {
     s = _subscriptions.get(i);
     if(s->getType() == event_type) {
-      Serial.print("Subscription Found: ");
-      Serial.println(s->getCallback());
-
       HTTPClient http;
       http.begin(s->getCallback());
       http.addHeader("SID", s->getSid());
@@ -604,7 +589,6 @@ void RadDevice::send(EventType event_type, uint8_t value) {
       if(httpCode > 0) {
         if(httpCode == HTTP_CODE_OK) {
             String payload = http.getString();
-            Serial.println(payload);
         }
       } else {
         Serial.printf("[HTTP] GET... failed, error: %s\n", http.errorToString(httpCode).c_str());

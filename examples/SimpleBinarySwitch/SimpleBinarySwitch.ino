@@ -5,6 +5,7 @@
 #include <ESP8266SSDP.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266WiFi.h>
+#include <ESP8266WiFiMulti.h>
 #include <FS.h>
 #include <LinkedList.h>
 #include <RadEsp8266.h>
@@ -14,6 +15,7 @@
 // WiFi Config
 const char* ssid = "YOUR_SSID";
 const char* pass = "YOUR_PASSWORD";
+ESP8266WiFiMulti WiFiMulti;
 
 
 // RAD variables

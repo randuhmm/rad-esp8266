@@ -64,16 +64,16 @@ Quickstart With Arduino IDE
 
 3. Select ``Sketch > Include Library > Manage Libraries`` from the application menu to open the Library Manager. Search for and install the latest supported versions of the following libraries:
 
-  * ArduinoJson
-  * LinkedList
-  * WiFiManager
+  * ``ArduinoJson``
+  * ``LinkedList``
+  * ``WiFiManager``
 
 4. Download the ``RadEsp8266`` library and extract it to your ``libraries`` directory for the Arduino IDE.
 
 5. From the application menu ``File > Examples > RadEsp8266``, locate the and open the ``SimpleBinarySwitch`` sketch and add your local WiFi credentials::
 
-   const char* ssid = "YOUR_SSID";
-   const char* pass = "YOUR_PASSWORD";
+     const char* ssid = "YOUR_SSID";
+     const char* pass = "YOUR_PASSWORD";
 
 6. Be sure to set the proper upload settings in the ``Tools`` menu and then upload the sketch to the module.
 
@@ -81,13 +81,19 @@ Quickstart With Arduino IDE
 
 8. If you see the following output from the Serial port, your module is sucessfully connected to your WiFi and ready to receive commands and send events::
 
-   TODO: collect example 
+     Starting...
+
+
+     Wait for WiFi... 
+     WiFi connected
+     IP address: 
+     192.168.1.113
 
 9. You should be able to push the momentary button to toggle the LED. Using a computer or device located on the same network as the ESP8266, you can submit an HTTP request like the following to turn the LED on or off::
 
-   # cURL request to turn the LED on
-   curl -X 'http://<IP_ADDRESS>/8080/devices/my_switch/commands' -d '{"type": "Set", "data": {"value": true}}'
+     # cURL request to turn the LED on
+     curl -X POST 'http://<IP_ADDRESS>:8080/devices/switch_1/commands' --data '{"type": "Set", "data": {"value": true}}'
 
-   # cURL request to turn the LED off
-   curl -X 'http://<IP_ADDRESS>/8080/devices/my_switch/commands' -d '{"type": "Set", "data": {"value": false}}'
+     # cURL request to turn the LED off
+     curl -X POST 'http://<IP_ADDRESS>:8080/devices/switch_1/commands' --data '{"type": "Set", "data": {"value": false}}'
 
