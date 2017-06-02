@@ -151,13 +151,50 @@ bool RadConnect::begin(void) {
 
   // Load the existing subscriptions from SPIFFS
   if(SPIFFS.exists(RAD_SUBSCRIPTIONS_FILE)) {
-    // TODO: Load subscriptions file
-    // Dir dir = SPIFFS.openDir(RAD_SUBSCRIPTIONS_FILE);
-    // while (dir.next()) {
-    //   Serial.print(dir.fileName());
-    //   File f = dir.openFile("r");
-    //   Serial.println(f.size());
-    // }
+    File f = SPIFFS.open(RAD_SUBSCRIPTIONS_FILE, "r");
+    // Check if file opened sucessfully
+    if(f) {
+      String subcription_data = f.readString();
+      f.close();
+      StaticJsonBuffer<2048> jsonBuffer;
+      JsonObject& subscription_json = jsonBuffer.parseObject(subcription_data);
+      if(subscription_json.containsKey("count")) {
+        _subscriptionCount = subscription_json["count"];
+      }
+      if(subscription_json.containsKey("subscriptions")) {
+        JsonArray& subscription_array = subscription_json["subscriptions"];
+        RadDevice* device;
+        Subscription* s;
+        for (auto value : subscription_array) {
+          JsonObject& subscription = value.as<JsonObject&>();
+          // TODO: print out the data for testing
+          if(!subscription.containsKey("id") || 
+             !subscription.containsKey("device_name") || 
+             !subscription.containsKey("type") || 
+             !subscription.containsKey("callback") || 
+             !subscription.containsKey("timeout") || 
+             !subscription.containsKey("calls") || 
+             !subscription.containsKey("errors")) {
+            continue;
+          } else {
+            const char* id = subscription["id"];
+            const char* device_name = subscription["device_name"];
+            EventType type = getEventType(subscription["type"]);
+            const char* callback = subscription["callback"];
+            int timeout = subscription["timeout"];
+            int calls = subscription["calls"];
+            int errors = subscription["errors"];
+            device = getDevice(device_name);
+            if(device == NULL) {
+              continue;
+            }
+            s = new Subscription(device, id, type, callback, timeout);
+            _subscriptions.add(s);
+            device->add(s);
+          }
+        }
+      }
+    }
   }
 
   // Prepare the uuid
@@ -167,6 +204,7 @@ bool RadConnect::begin(void) {
   (uint16_t) ((chipId >>  8) & 0xff),
   (uint16_t)   chipId        & 0xff);
 
+  // Prepare the info response
   char buffer[512];
   sprintf(buffer, _info_template,
     _name,
@@ -174,19 +212,19 @@ bool RadConnect::begin(void) {
   );
   _info = String(buffer);
 
+  // Debugging...
   Serial.println("ChipId: ");
   Serial.println(chipId);
   Serial.println((uint16_t) ((chipId >> 16) & 0xff));
   Serial.println((uint16_t) ((chipId >>  8) & 0xff));
   Serial.println((uint16_t)   chipId        & 0xff);
-
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
 
+  // Add the HTTP handlers
   _http.on(RAD_INFO_PATH, std::bind(&RadConnect::handleInfo, this));
   _http.on(RAD_DEVICES_PATH, std::bind(&RadConnect::handleDevices, this));
   _http.on(RAD_SUBSCRIPTIONS_PATH, std::bind(&RadConnect::handleSubscriptions, this));
-
   on(RAD_DEVICES_PATH "/{}" RAD_COMMANDS_PATH,
      std::bind(&RadConnect::handleDeviceCommands, this, std::placeholders::_1));
   on(RAD_DEVICES_PATH "/{}" RAD_EVENTS_PATH,
@@ -194,11 +232,7 @@ bool RadConnect::begin(void) {
   on(RAD_SUBSCRIPTIONS_PATH "/{}",
      std::bind(&RadConnect::handleSubscription, this, std::placeholders::_1));
 
-  // SSDP
-  // Serial.println("Starting http...");
-  //_http.on("/", std::bind(&RadConnect::handleRoot, this));
-  // _http.on("/" RAD_COMMAND_PATH, std::bind(&RadConnect::handleCommand, this));
-  // _http.on("/" RAD_SUBSCRIBE_PATH, std::bind(&RadConnect::handleSubscribe, this));
+  // Prepare the SSDP configuration
   _http.collectHeaders(HEADERS, 4);
   _http.begin();
   SSDP.setDeviceType(RAD_DEVICE_TYPE);
@@ -219,6 +253,7 @@ bool RadConnect::begin(void) {
 void RadConnect::update(void) {
   // loop
   _http.handleClient();
+  yield(); // Allow WiFi stack a chance to run
 
   long current = millis();
   // Check for expired subscriptions
@@ -231,6 +266,7 @@ void RadConnect::update(void) {
       i -= 1;
     }
   }
+  yield(); // Allow WiFi stack a chance to run
 
   // Check to see if we need to write to SPIFFS
   if(_subscriptionsChanged && current - _lastWrite >= RAD_MIN_WRITE_INTERVAL) {
@@ -239,6 +275,7 @@ void RadConnect::update(void) {
     _lastWrite = current;
     _subscriptionsChanged = false;
   }
+  yield(); // Allow WiFi stack a chance to run
 
 }
 
