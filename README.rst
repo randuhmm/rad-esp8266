@@ -21,7 +21,7 @@ An IoT framework library for ESP8266 modules.
 
 This library builds on top of existing libraries such as WiFiManager, ArduionJson and the ESP8266-Core to provide a complete framework for building, configuring, discovering and communicating with a variety of devices such as sensors and switches.
 
-Many "barebones" examples are provided that can simply be flashed to a chip and configured. For simple switch and sensor applications, these may provide all the functinality that is needed, however, the API can also be used to customize the devices for more complex or custom applications.
+Many "barebones" examples are provided that can simply be flashed to a chip and configured. For simple switch and sensor applications, these may provide all the functionality that is needed, however, the API can also be used to customize the devices for more complex or custom applications.
 
 Requirements
 ------------
