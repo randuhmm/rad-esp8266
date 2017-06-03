@@ -10,11 +10,19 @@ consumes:
   - application/json
 produces:
   - application/json
+tags:
+  - name: info
+  - name: devices
+  - name: commands
+  - name: events
+  - name: subscriptions
 paths:
   /:
     get:
       summary: Get info about the RAD-ESP8266
       operationId: info
+      tags:
+        - info
       parameters: []
       responses:
         200:
@@ -22,7 +30,7 @@ paths:
           schema:
             $ref: '#/definitions/Info'
           examples:
-            aplication/json:
+            application/json:
               name: My RAD Device
               type: urn:rad:device:esp8266:1
               model: RAD-ESP8266
@@ -167,8 +175,10 @@ paths:
           description: unexpected error
           schema:
             $ref: '#/definitions/Error'
+responses: {}
 definitions:
   Info:
+    type: object
     required:
       - name
       - type
@@ -190,6 +200,7 @@ definitions:
       UDN:
         type: string
   Device:
+    type: object
     required:
       - name
       - type
@@ -207,6 +218,7 @@ definitions:
     items:
       $ref: '#/definitions/Device'
   Command:
+    type: object
     required:
       - id
       - device_name
@@ -227,6 +239,7 @@ definitions:
     items:
       $ref: '#/definitions/Command'
   NewCommand:
+    type: object
     required:
       - type
     properties:
@@ -235,6 +248,7 @@ definitions:
       data:
         type: object
   Event:
+    type: object
     required:
       - device_name
       - type
@@ -250,6 +264,7 @@ definitions:
     items:
       $ref: '#/definitions/Event'
   Subscription:
+    type: object
     required:
       - id
       - device_name
@@ -281,6 +296,7 @@ definitions:
     items:
       $ref: '#/definitions/Subscription'
   NewSubscription:
+    type: object
     required:
       - device_name
       - type
@@ -295,6 +311,7 @@ definitions:
       timeout:
         type: integer
   Error:
+    type: object
     required:
       - code
       - message

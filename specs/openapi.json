@@ -16,11 +16,31 @@
   "produces": [
     "application/json"
   ],
+  "tags": [
+    {
+      "name": "info"
+    },
+    {
+      "name": "devices"
+    },
+    {
+      "name": "commands"
+    },
+    {
+      "name": "events"
+    },
+    {
+      "name": "subscriptions"
+    }
+  ],
   "paths": {
     "/": {
       "get": {
         "summary": "Get info about the RAD-ESP8266",
         "operationId": "info",
+        "tags": [
+          "info"
+        ],
         "parameters": [],
         "responses": {
           "200": {
@@ -256,6 +276,7 @@
   "responses": {},
   "definitions": {
     "Info": {
+      "type": "object",
       "required": [
         "name",
         "type",
@@ -286,6 +307,7 @@
       }
     },
     "Device": {
+      "type": "object",
       "required": [
         "name",
         "type"
@@ -312,6 +334,7 @@
       }
     },
     "Command": {
+      "type": "object",
       "required": [
         "id",
         "device_name",
@@ -342,6 +365,7 @@
       }
     },
     "NewCommand": {
+      "type": "object",
       "required": [
         "type"
       ],
@@ -355,6 +379,7 @@
       }
     },
     "Event": {
+      "type": "object",
       "required": [
         "device_name",
         "type"
@@ -378,6 +403,7 @@
       }
     },
     "Subscription": {
+      "type": "object",
       "required": [
         "id",
         "device_name",
@@ -422,6 +448,7 @@
       }
     },
     "NewSubscription": {
+      "type": "object",
       "required": [
         "device_name",
         "type",
@@ -443,6 +470,7 @@
       }
     },
     "Error": {
+      "type": "object",
       "required": [
         "code",
         "message"
