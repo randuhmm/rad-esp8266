@@ -5,7 +5,6 @@
 #include <ESP8266SSDP.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266WiFi.h>
-#include <ESP8266WiFiMulti.h>
 #include <FS.h>
 #include <LinkedList.h>
 #include <RADESP8266.h>
@@ -15,7 +14,6 @@
 // WiFi Config
 const char* ssid = "YOUR_SSID";
 const char* pass = "YOUR_PASSWORD";
-ESP8266WiFiMulti WiFiMulti;
 
 
 // RAD variables
@@ -86,15 +84,16 @@ void setup() {
   Serial.println("Starting...");
 
   // We start by connecting to a WiFi network
-  WiFiMulti.addAP(ssid, pass);
+  WiFi.begin(ssid, pass);
 
   Serial.println();
   Serial.println();
-  Serial.print("Wait for WiFi... ");
+  Serial.print("Connecting to ");
+  Serial.println(ssid);
 
-  while(WiFiMulti.run() != WL_CONNECTED) {
-      Serial.print(".");
-      delay(500);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
   }
 
   Serial.println("");
