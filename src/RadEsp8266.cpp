@@ -1,30 +1,30 @@
-#include "RadEsp8266.h"
+#include "RADESP8266.h"
 
 
-DeviceType getDeviceType(const char* s) {
-  DeviceType dt = NullDevice;
+FeatureType getFeatureType(const char* s) {
+  FeatureType ft = NullFeature;
   if(strcmp(s, "SwitchBinary") == 0) {
-    dt = SwitchBinary;
+    ft = SwitchBinary;
   } else if(strcmp(s, "SensorBinary") == 0) {
-    dt = SensorBinary;
+    ft = SensorBinary;
   } else if(strcmp(s, "SwitchMultiLevel") == 0) {
-    dt = SwitchMultiLevel;
+    ft = SwitchMultiLevel;
   } else if(strcmp(s, "SensorMultiLevel") == 0) {
-    dt = SensorMultiLevel;
+    ft = SensorMultiLevel;
   }
-  return dt;
+  return ft;
 }
 
 
-const char* sendDeviceType(DeviceType dt) {
-  const char* s = "NullDevice";
-  if(dt == SwitchBinary) {
+const char* sendFeatureType(FeatureType ft) {
+  const char* s = "NullFeature";
+  if(ft == SwitchBinary) {
     s = "SwitchBinary";
-  } else if(dt == SensorBinary) {
+  } else if(ft == SensorBinary) {
     s = "SensorBinary";
-  } else if(dt == SwitchMultiLevel) {
+  } else if(ft == SwitchMultiLevel) {
     s = "SwitchMultiLevel";
-  } else if(dt == SensorMultiLevel) {
+  } else if(ft == SensorMultiLevel) {
     s = "SensorMultiLevel";
   }
   return s;
@@ -87,7 +87,7 @@ static const char* HEADERS[] = {
 };
 
 
-RadConnect::RadConnect(const char* name) {
+RADConnector::RADConnector(const char* name) {
   _name = name;
   _http = ESP8266WebServer(RAD_HTTP_PORT);
   _subscriptionCount = 0;
@@ -95,19 +95,19 @@ RadConnect::RadConnect(const char* name) {
 }
 
 
-void RadConnect::add(RadDevice* device) {
-  _devices.add(device);
+void RADConnector::add(RADFeature* feature) {
+  _features.add(feature);
 }
 
 
-Subscription* RadConnect::subscribe(RadDevice* device, EventType type,
+RADSubscription* RADConnector::subscribe(RADFeature* feature, EventType type,
                                     const char* callback, int timeout) {
-  Subscription* s;
-  RadDevice* d;
+  RADSubscription* s;
+  RADFeature* f;
   for(int i = 0; i < _subscriptions.size(); i++) {
     s = _subscriptions.get(i);
-    d = s->getDevice();
-    if(device == d && s->getType() == type && strcmp(s->getCallback(), callback) == 0) {
+    f = s->getFeature();
+    if(feature == f && s->getType() == type && strcmp(s->getCallback(), callback) == 0) {
       unsubscribe(i);
       i -= 1;
     }
@@ -121,26 +121,26 @@ Subscription* RadConnect::subscribe(RadDevice* device, EventType type,
   (uint16_t) ((chipId >>  8) & 0xff),
   (uint16_t)   chipId        & 0xff ,
               _subscriptionCount);
-  s = new Subscription(device, sid, type, callback, timeout);
+  s = new RADSubscription(feature, sid, type, callback, timeout);
   _subscriptions.add(s);
-  device->add(s);
+  feature->add(s);
   _subscriptionsChanged = true;
   return s;
 }
 
 
-void RadConnect::unsubscribe(int index) {
-  Subscription* s;
+void RADConnector::unsubscribe(int index) {
+  RADSubscription* s;
   s = _subscriptions.get(index);
   _subscriptions.remove(index);
-  RadDevice* device = s->getDevice();
-  device->remove(s);
+  RADFeature* feature = s->getFeature();
+  feature->remove(s);
   delete s;
   _subscriptionsChanged = true;
 }
 
 
-bool RadConnect::begin(void) {
+bool RADConnector::begin(void) {
 
   // Start the SPIFFS object
   SPIFFS.begin();
@@ -159,34 +159,34 @@ bool RadConnect::begin(void) {
       }
       if(subscription_json.containsKey("subscriptions")) {
         JsonArray& subscription_array = subscription_json["subscriptions"];
-        RadDevice* device;
-        Subscription* s;
+        RADFeature* feature;
+        RADSubscription* s;
         for (auto value : subscription_array) {
           JsonObject& subscription = value.as<JsonObject&>();
           // TODO: print out the data for testing
-          if(!subscription.containsKey("id") || 
-             !subscription.containsKey("device_name") || 
-             !subscription.containsKey("type") || 
-             !subscription.containsKey("callback") || 
-             !subscription.containsKey("timeout") || 
-             !subscription.containsKey("calls") || 
+          if(!subscription.containsKey("id") ||
+             !subscription.containsKey("feature_name") ||
+             !subscription.containsKey("type") ||
+             !subscription.containsKey("callback") ||
+             !subscription.containsKey("timeout") ||
+             !subscription.containsKey("calls") ||
              !subscription.containsKey("errors")) {
             continue;
           } else {
             const char* id = subscription["id"];
-            const char* device_name = subscription["device_name"];
+            const char* feature_name = subscription["feature_name"];
             EventType type = getEventType(subscription["type"]);
             const char* callback = subscription["callback"];
             int timeout = subscription["timeout"];
             int calls = subscription["calls"];
             int errors = subscription["errors"];
-            device = getDevice(device_name);
-            if(device == NULL) {
+            feature = getFeature(feature_name);
+            if(feature == NULL) {
               continue;
             }
-            s = new Subscription(device, id, type, callback, timeout);
+            s = new RADSubscription(feature, id, type, callback, timeout);
             _subscriptions.add(s);
-            device->add(s);
+            feature->add(s);
           }
         }
       }
@@ -218,15 +218,14 @@ bool RadConnect::begin(void) {
   // Serial.println(WiFi.localIP());
 
   // Add the HTTP handlers
-  _http.on(RAD_INFO_PATH, std::bind(&RadConnect::handleInfo, this));
-  _http.on(RAD_DEVICES_PATH, std::bind(&RadConnect::handleDevices, this));
-  _http.on(RAD_SUBSCRIPTIONS_PATH, std::bind(&RadConnect::handleSubscriptions, this));
-  on(RAD_DEVICES_PATH "/{}" RAD_COMMANDS_PATH,
-     std::bind(&RadConnect::handleDeviceCommands, this, std::placeholders::_1));
-  on(RAD_DEVICES_PATH "/{}" RAD_EVENTS_PATH,
-     std::bind(&RadConnect::handleDeviceEvents, this, std::placeholders::_1));
-  on(RAD_SUBSCRIPTIONS_PATH "/{}",
-     std::bind(&RadConnect::handleSubscription, this, std::placeholders::_1));
+  _http.on(RAD_INFO_PATH, std::bind(&RADConnector::handleInfo, this));
+  _http.on(RAD_FEATURES_PATH, std::bind(&RADConnector::handleFeatures, this));
+  _http.on(RAD_SUBSCRIPTIONS_PATH, std::bind(&RADConnector::handleSubscriptions, this));
+  _http.on(RAD_COMMANDS_PATH, std::bind(&RADConnector::handleCommands, this));
+  // on(RAD_FEATURES_PATH "/{}" RAD_EVENTS_PATH,
+  //    std::bind(&RADConnector::handleFeatureEvents, this, std::placeholders::_1));
+  // on(RAD_SUBSCRIPTIONS_PATH "/{}",
+  //    std::bind(&RADConnector::handleSubscription, this, std::placeholders::_1));
 
   // Prepare the SSDP configuration
   _http.collectHeaders(HEADERS, 4);
@@ -246,14 +245,14 @@ bool RadConnect::begin(void) {
 }
 
 
-void RadConnect::update(void) {
+void RADConnector::update(void) {
   // loop
   _http.handleClient();
   yield(); // Allow WiFi stack a chance to run
 
   long current = millis();
   // Check for expired subscriptions
-  Subscription* s;
+  RADSubscription* s;
   for(int i = 0; i < _subscriptions.size(); i++) {
     s = _subscriptions.get(i);
     if(!s->isActive(current)) {
@@ -276,29 +275,19 @@ void RadConnect::update(void) {
 }
 
 
-RadDevice* RadConnect::getDevice(const char* name) {
-  RadDevice* device = NULL;
-  for(int i = 0; i < _devices.size(); i++) {
-    if(strcmp(_devices.get(i)->getName(), name) == 0) {
-      device = _devices.get(i);
+RADFeature* RADConnector::getFeature(const char* name) {
+  RADFeature* feature = NULL;
+  for(int i = 0; i < _features.size(); i++) {
+    if(strcmp(_features.get(i)->getName(), name) == 0) {
+      feature = _features.get(i);
       break;
     }
   }
-  return device;
+  return feature;
 }
 
 
-void RadConnect::on(const char* uri, PATH_FP fn) {
-  on(uri, HTTP_ANY, fn);
-}
-
-
-void RadConnect::on(const char* uri, HTTPMethod method, PATH_FP fn) {
-  _http.addHandler(new PathSegmentRequestHandler(fn, uri, method));
-}
-
-
-void RadConnect::handleInfo(void) {
+void RADConnector::handleInfo(void) {
   Serial.println("/");
   if(_http.method() == HTTP_GET) {
     _http.send(200, "application/json", _info);
@@ -308,31 +297,31 @@ void RadConnect::handleInfo(void) {
 }
 
 
-void RadConnect::handleDevices(void) {
-  Serial.println("/devices");
+void RADConnector::handleFeatures(void) {
+  Serial.println("/features");
   int code = 200;
   if(_http.method() == HTTP_GET) {
     // Prepare the JSON response
-    StaticJsonBuffer<1024> devicesBuffer;
-    char devicesString[1024];
-    JsonArray& devices = devicesBuffer.createArray();
-    RadDevice* device;
-    for(int i = 0; i < _devices.size(); i++) {
-      device = _devices.get(i);
-      JsonObject& device_json = devices.createNestedObject();
-      device_json["name"] = device->getName();
-      device_json["type"] = sendDeviceType(device->getType());
-      device_json["description"] = "";
+    StaticJsonBuffer<1024> featuresBuffer;
+    char featuresString[1024];
+    JsonArray& features = featuresBuffer.createArray();
+    RADFeature* feature;
+    for(int i = 0; i < _features.size(); i++) {
+      feature = _features.get(i);
+      JsonObject& feature_json = features.createNestedObject();
+      feature_json["feature_name"] = feature->getName();
+      feature_json["feature_type"] = sendFeatureType(feature->getType());
+      feature_json["description"] = "";
     }
-    devices.printTo(devicesString, sizeof(devicesString));
-    _http.send(code, "application/json", devicesString);
+    features.printTo(featuresString, sizeof(featuresString));
+    _http.send(code, "application/json", featuresString);
   } else {
     _http.send(405);
   }
 }
 
 
-void RadConnect::handleSubscriptions(void) {
+void RADConnector::handleSubscriptions(void) {
   Serial.println("/subscriptions");
   int code = 200;
   long current = millis();
@@ -341,16 +330,16 @@ void RadConnect::handleSubscriptions(void) {
     StaticJsonBuffer<1024> subscriptionsBuffer;
     char subscriptionsString[1024];
     JsonArray& subscriptions = subscriptionsBuffer.createArray();
-    RadDevice* device;
-    Subscription* subscription;
+    RADFeature* feature;
+    RADSubscription* subscription;
     for(int i = 0; i < _subscriptions.size(); i++) {
       subscription = _subscriptions.get(i);
       if(subscription->isActive(current)) {
-        device = subscription->getDevice();
+        feature = subscription->getFeature();
         JsonObject& subscription_json = subscriptions.createNestedObject();
         subscription_json["id"] = subscription->getSid();
-        subscription_json["device_name"] = device->getName();
-        subscription_json["type"] = sendEventType(subscription->getType());
+        subscription_json["feature_name"] = feature->getName();
+        subscription_json["event_type"] = sendEventType(subscription->getType());
         subscription_json["callback"] = subscription->getCallback();
         subscription_json["timeout"] = subscription->getTimeout();
         subscription_json["duration"] = subscription->getDuration(current);
@@ -362,27 +351,27 @@ void RadConnect::handleSubscriptions(void) {
     String message = "";
     StaticJsonBuffer<255> jsonBuffer;
     JsonObject& root = jsonBuffer.parseObject(_http.arg("plain"));
-    if(!root.containsKey("device_name")) {
+    if(!root.containsKey("feature_name")) {
       code = 400;
-      message = "{\"error\": \"Missing required property 'device_name'.\"}";
-    } else if(!root.containsKey("type")) {
+      message = "{\"error\": \"Missing required property 'feature_name'.\"}";
+    } else if(!root.containsKey("event_type")) {
       code = 400;
-      message = "{\"error\": \"Missing required property 'type'.\"}";
+      message = "{\"error\": \"Missing required property 'event_type'.\"}";
     } else if(!root.containsKey("callback")) {
       code = 400;
       message = "{\"error\": \"Missing required property 'callback'.\"}";
     } else {
-      const char* device_name = root["device_name"];
-      EventType type = getEventType(root["type"]);
+      const char* feature_name = root["feature_name"];
+      EventType type = getEventType(root["event_type"]);
       const char* callback = root["callback"];
       int timeout = RAD_MIN_TIMEOUT;
       if(root.containsKey("timeout")) {
         timeout = root["timeout"];
       }
-      RadDevice* device = getDevice(device_name);
-      if (device == NULL) {
+      RADFeature* feature = getFeature(feature_name);
+      if (feature == NULL) {
         code = 400;
-        message = "{\"error\": \"Device could not be located.\"}";
+        message = "{\"error\": \"Feature could not be located.\"}";
       } else if(type == NullEvent) {
         code = 400;
         message = "{\"error\": \"Unsuported event type.\"}";
@@ -390,9 +379,9 @@ void RadConnect::handleSubscriptions(void) {
         code = 400;
         message = "{\"error\": \"The timeout property can not be less than 600 seconds.\"}";
       } else {
-        // Subscription* subscription = device->subscribe(type, callback);
+        // RADSubscription* subscription = feature->subscribe(type, callback);
         // add(subscription);
-        Subscription* subscription = subscribe(device, type, callback, timeout);
+        RADSubscription* subscription = subscribe(feature, type, callback, timeout);
         char sid[100];
         snprintf(sid, sizeof(sid), "uuid:%s", subscription->getSid());
         _http.sendHeader("SID", sid);
@@ -406,56 +395,61 @@ void RadConnect::handleSubscriptions(void) {
 }
 
 
-void RadConnect::handleDeviceCommands(LinkedList<String>& segments) {
-  String device_name = segments.get(0);
-  RadDevice* device = getDevice(device_name.c_str());
+void RADConnector::handleCommands(void) {
   int code = 200;
   uint8_t value;
   String message = "";
-  if(device == NULL) {
-    _http.send(404);
-  } else if(_http.method() == HTTP_POST) {
+  if(_http.method() == HTTP_POST) {
     StaticJsonBuffer<255> jsonBuffer;
     JsonObject& root = jsonBuffer.parseObject(_http.arg("plain"));
-    if(!root.containsKey("type")) {
+    if(!root.containsKey("feature_name")) {
       code = 400;
-      message = "{\"error\": \"Missing required property, 'type'.\"}";
+      message = "{\"error\": \"Missing required property, 'feature_name'.\"}";
+    }else  if(!root.containsKey("command_type")) {
+      code = 400;
+      message = "{\"error\": \"Missing required property, 'command_type'.\"}";
     } else {
-      CommandType type = getCommandType(root["type"]);
-      switch(type) {
-        case Set:
-          if(!root.containsKey("data")) {
-            code = 400;
-            message = "{\"error\": \"Missing required property, 'data'.\"}";
-          } else {
-            JsonObject& data = root["data"].asObject();
-            if(data == JsonObject::invalid()) {
+      RADFeature* feature = getFeature(root["feature_name"]);
+      if(feature == NULL) {
+        code = 400;
+        message = "{\"error\": \"Invalid 'feature_name' value.\"}";
+      } else {
+        CommandType type = getCommandType(root["command_type"]);
+        switch(type) {
+          case Set:
+            if(!root.containsKey("data")) {
               code = 400;
-              message = "{\"error\": \"Property 'data' must be an object.\"}";
-            } else if(!data.containsKey("value")) {
-                code = 400;
-                message = "{\"error\": \"Missing required property, 'value'.\"}";
+              message = "{\"error\": \"Missing required property, 'data'.\"}";
             } else {
-              value = data["value"];
-              bool result = execute(device, Set, value);
-              if(result) {
-                message = "{\"result\": true}";
+              JsonObject& data = root["data"].asObject();
+              if(data == JsonObject::invalid()) {
+                code = 400;
+                message = "{\"error\": \"Property 'data' must be an object.\"}";
+              } else if(!data.containsKey("value")) {
+                  code = 400;
+                  message = "{\"error\": \"Missing required property, 'value'.\"}";
               } else {
-                code = 500;
+                value = data["value"];
+                bool result = execute(feature, Set, value);
+                if(result) {
+                  message = "{\"result\": true}";
+                } else {
+                  code = 500;
+                }
               }
             }
-          }
-          break;
-        case Get:
-          value = execute(device, Get);
-          char buff[100];
-          snprintf(buff, sizeof(buff), "{\"value\": %d}", value);
-          message = buff;
-          break;
-        default:
-          code = 400;
-          message = "{\"error\": \"Unsuported command type.\"}";
-          break;
+            break;
+          case Get:
+            value = execute(feature, Get);
+            char buff[100];
+            snprintf(buff, sizeof(buff), "{\"value\": %d}", value);
+            message = buff;
+            break;
+          default:
+            code = 400;
+            message = "{\"error\": \"Unsuported command type.\"}";
+            break;
+        }
       }
     }
     _http.send(code, "application/json", message);
@@ -464,54 +458,54 @@ void RadConnect::handleDeviceCommands(LinkedList<String>& segments) {
   }
 }
 
-
-void RadConnect::handleDeviceEvents(LinkedList<String>& segments) {
-  Serial.println("/devices/{}/events");
-  _http.send(200, "application/json", "/devices/{}/events");
+/*
+void RADConnector::handleEvents(LinkedList<String>& segments) {
+  Serial.println("/features/{}/events");
+  _http.send(200, "application/json", "/features/{}/events");
   return;
 }
 
 
-void RadConnect::handleSubscription(LinkedList<String>& segments) {
+void RADConnector::handleSubscription(LinkedList<String>& segments) {
   Serial.println("/subscriptions/{}");
   _http.send(200, "application/json", "/subscriptions/{}");
   return;
 }
+*/
 
-
-uint8_t RadConnect::execute(const char* name, CommandType command_type) {
-  RadDevice* device;
-  for(int i = 0; i < _devices.size(); i++) {
-    device = _devices.get(i);
-    if(strcmp(device->getName(), name) == 0) {
-      return execute(device, command_type);
+uint8_t RADConnector::execute(const char* name, CommandType command_type) {
+  RADFeature* feature;
+  for(int i = 0; i < _features.size(); i++) {
+    feature = _features.get(i);
+    if(strcmp(feature->getName(), name) == 0) {
+      return execute(feature, command_type);
     }
   }
 }
 
 
-uint8_t RadConnect::execute(RadDevice* device, CommandType command_type) {
-  return device->execute(command_type);
+uint8_t RADConnector::execute(RADFeature* feature, CommandType command_type) {
+  return feature->execute(command_type);
 }
 
 
-bool RadConnect::execute(const char* name, CommandType command_type, uint8_t value) {
-  RadDevice* device;
-  for(int i = 0; i < _devices.size(); i++) {
-    device = _devices.get(i);
-    if(strcmp(device->getName(), name) == 0) {
-      return execute(device, command_type, value);
+bool RADConnector::execute(const char* name, CommandType command_type, uint8_t value) {
+  RADFeature* feature;
+  for(int i = 0; i < _features.size(); i++) {
+    feature = _features.get(i);
+    if(strcmp(feature->getName(), name) == 0) {
+      return execute(feature, command_type, value);
     }
   }
 }
 
 
-bool RadConnect::execute(RadDevice* device, CommandType command_type, uint8_t value) {
-  return device->execute(command_type, value);
+bool RADConnector::execute(RADFeature* feature, CommandType command_type, uint8_t value) {
+  return feature->execute(command_type, value);
 }
 
 
-RadDevice::RadDevice(DeviceType type, const char* name) {
+RADFeature::RADFeature(FeatureType type, const char* name) {
   _type = type;
   _name = name;
   _setCallback = NULL;
@@ -519,7 +513,7 @@ RadDevice::RadDevice(DeviceType type, const char* name) {
 }
 
 
-uint8_t RadDevice::execute(CommandType command_type) {
+uint8_t RADFeature::execute(CommandType command_type) {
   uint8_t result = 0;
   switch(command_type) {
     case Get:
@@ -538,7 +532,7 @@ uint8_t RadDevice::execute(CommandType command_type) {
 }
 
 
-bool RadDevice::execute(CommandType command_type, uint8_t value) {
+bool RADFeature::execute(CommandType command_type, uint8_t value) {
   bool result = false;
   switch(command_type) {
     case Set:
@@ -558,13 +552,13 @@ bool RadDevice::execute(CommandType command_type, uint8_t value) {
 }
 
 
-void RadDevice::send(EventType event_type) {
+void RADFeature::send(EventType event_type) {
 
 }
 
 
-void RadDevice::send(EventType event_type, uint8_t value) {
-  Subscription* s;
+void RADFeature::send(EventType event_type, uint8_t value) {
+  RADSubscription* s;
   String message = "";
   switch(event_type) {
     case State:
@@ -599,12 +593,12 @@ void RadDevice::send(EventType event_type, uint8_t value) {
 }
 
 
-void RadDevice::add(Subscription* subscription) {
+void RADFeature::add(RADSubscription* subscription) {
   _subscriptions.add(subscription);
 }
 
 
-void RadDevice::remove(Subscription* subscription) {
+void RADFeature::remove(RADSubscription* subscription) {
   for(int i = 0; i < _subscriptions.size(); i++) {
     if(_subscriptions.get(i) == subscription) {
       _subscriptions.remove(i);

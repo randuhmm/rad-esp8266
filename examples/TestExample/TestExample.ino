@@ -8,7 +8,7 @@
 #include <ESP8266WiFi.h>
 #include <FS.h>
 #include <LinkedList.h>
-#include <RadEsp8266.h>
+#include <RADESP8266.h>
 #include <Ticker.h>
 #include <WiFiManager.h>
 #include <WiFiUdp.h>
@@ -17,8 +17,8 @@
 Ticker ticker;
 
 // RAD variables
-RadConnect radConnect("MyESP");
-RadDevice switch_1(SwitchBinary, "switch_1");
+RADConnector rad("MyESP");
+RADFeature switch_1(SwitchBinary, "switch_1");
 const int SWITCH_1_PIN = 2;
 const uint8_t SWITCH_ON = 255;
 const uint8_t SWITCH_OFF = 0;
@@ -185,10 +185,10 @@ void setup() {
   setup_ota();
 
   // Create the devices here
-  radConnect.add(&switch_1);
+  rad.add(&switch_1);
   switch_1.callback(Set, switch_1_set);
   switch_1.callback(Get, switch_1_get);
-  radConnect.begin();
+  rad.begin();
 
   // Setup button
   pinMode(BUTTON_PIN, INPUT);
@@ -199,7 +199,7 @@ void setup() {
 
 void loop() {
   ArduinoOTA.handle();
-  radConnect.update();
+  rad.update();
 
   // Handle button presses
   switch (cmd) {

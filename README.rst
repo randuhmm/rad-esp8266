@@ -138,12 +138,12 @@ Arduino IDE
    an HTTP request like the following to turn the LED on or off::
 
      # cURL request to turn the LED on
-     curl -X POST 'http://<IP_ADDRESS>:8080/devices/switch_1/commands' \
-       --data '{"type": "Set", "data": {"value": true}}'
+     curl -v -X POST 'http://<IP_ADDRESS>/commands' --data \
+     '{"feature_name": "switch_1", "command_type": "Set", "data": {"value": true}}'
 
      # cURL request to turn the LED off
-     curl -X POST 'http://<IP_ADDRESS>:8080/devices/switch_1/commands' \
-       --data '{"type": "Set", "data": {"value": false}}'
+     curl -v -X POST 'http://<IP_ADDRESS>/commands' --data \
+     '{"feature_name": "switch_1", "command_type": "Set", "data": {"value": false}}'
 
 .. _Pub-Sub: https://en.wikipedia.org/wiki/Publish%E2%80%93subscribe_pattern
 .. _Arduino IDE: https://www.arduino.cc/en/Main/Software

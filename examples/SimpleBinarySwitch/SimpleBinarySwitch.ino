@@ -8,7 +8,7 @@
 #include <ESP8266WiFiMulti.h>
 #include <FS.h>
 #include <LinkedList.h>
-#include <RadEsp8266.h>
+#include <RADESP8266.h>
 #include <WiFiUdp.h>
 
 
@@ -19,8 +19,8 @@ ESP8266WiFiMulti WiFiMulti;
 
 
 // RAD variables
-RadConnect radConnect("MyESP");
-RadDevice switch_1(SwitchBinary, "switch_1");
+RADConnector rad("MyESP");
+RADFeature switch_1(SwitchBinary, "switch_1");
 const int SWITCH_PIN = 2;
 uint8_t switch_1_state = false;
 
@@ -103,10 +103,10 @@ void setup() {
   Serial.println(WiFi.localIP());
 
   // Create the devices here
-  radConnect.add(&switch_1);
+  rad.add(&switch_1);
   switch_1.callback(Set, switch_1_set);
   switch_1.callback(Get, switch_1_get);
-  radConnect.begin();
+  rad.begin();
 
   // Setup the momentary push button pin
   pinMode(BUTTON_PIN, INPUT);
@@ -115,7 +115,7 @@ void setup() {
 
 
 void loop() {
-  radConnect.update();
+  rad.update();
 
   // Handle button presses
   switch(cmd) {
