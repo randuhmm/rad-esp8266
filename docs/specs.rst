@@ -4,7 +4,7 @@ API Specification v1.0
 
 .. http:get:: /
 
-   Get info about the RAD-ESP8266
+   Get info about the RAD-ESP8266 device
 
    **Example request**:
 
@@ -32,26 +32,26 @@ API Specification v1.0
 
    :>json string name: The name of the ESP8266
    :>json string type: The full URN
-   :>json string model: 
-   :>json string description: 
-   :>json string serial: 
-   :>json string UDN: 
+   :>json string model:
+   :>json string description:
+   :>json string serial:
+   :>json string UDN:
    :status 200: no error
    :status 500: error
 
 
-Devices
--------
+Features
+--------
 
-.. http:get:: /devices
+.. http:get:: /features
 
-   Get a list of devices
+   Get a list of device features
 
    **Example request**:
 
    .. sourcecode:: http
 
-      GET /devices HTTP/1.1
+      GET /features HTTP/1.1
       Host: example.com
       Content-Type: application/json
 
@@ -64,25 +64,25 @@ Devices
 
       [
           {
-              "name": "switch_1",
-              "type": "BinarySwitch"
+              "feature_name": "switch_1",
+              "feature_type": "BinarySwitch"
           },
           {
-              "name": "switch_2",
-              "type": "BinarySwitch"
+              "feature_name": "switch_2",
+              "feature_type": "BinarySwitch"
           }
       ]
 
-   :>jsonarr string name: The device name
-   :>jsonarr string type: The device type
+   :>jsonarr string name: The feature name
+   :>jsonarr string type: The feature type
    :status 200: no error
    :status 500: error
 
 
-Device Commands
----------------
+Commands
+--------
 
-.. http:post:: /devices/(string:device_name)/commands
+.. http:post:: /commands
 
    Create a new command
 
@@ -90,12 +90,13 @@ Device Commands
 
    .. sourcecode:: http
 
-      GET /devices/my_device/commands HTTP/1.1
+      GET /commands HTTP/1.1
       Host: example.com
       Content-Type: application/json
 
       {
-          "type": "Set",
+          "feature_name": "switch_1",
+          "command_type": "Set",
           "data": {
               "value": true
           }
@@ -108,9 +109,8 @@ Device Commands
       HTTP/1.1 200 OK
       Content-Type: text/javascript
 
-   :param device_name: The Device name
-   :type device_name: string
-   :<json string type: The type of command
+   :<json string feature_name: The name of the target feature
+   :<json string command_type: The type of command
    :<json object data: The data for the command
    :status 200: no error
    :status 400: when form parameters are missing
@@ -141,8 +141,8 @@ Subscriptions
 
       [
           {
-              "device_name": "my_switch",
-              "type": "State",
+              "feature_name": "switch_1",
+              "event_type": "State",
               "callback": "http://my-server.local:8000/notify",
               "timeout": 3600,
               "duration": 250,
@@ -150,8 +150,8 @@ Subscriptions
               "errors": 0
           },
           {
-              "device_name": "other_switch",
-              "type": "State",
+              "feature_name": "switch_2",
+              "event_type": "State",
               "callback": "http://my-server.local:8000/notify",
               "timeout": 3600,
               "duration": 3000,
@@ -160,8 +160,8 @@ Subscriptions
           }
       ]
 
-   :>jsonarr string device_name: The device name
-   :>jsonarr string type: The type of event
+   :>jsonarr string feature_name: The name of the target feature
+   :>jsonarr string event_type: The type of event
    :>jsonarr string callback: The HTTP callback
    :>jsonarr int timeout: The timeout value
    :>jsonarr int duration: The duration of this subscription
@@ -183,8 +183,8 @@ Subscriptions
       Content-Type: application/json
 
       {
-          "device_name": "my_switch",
-          "type": "State",
+          "feature_name": "switch_1",
+          "event_type": "State",
           "callback": "http://my-server.local:8000/notify",
           "timeout": 3600
       }
@@ -196,8 +196,8 @@ Subscriptions
       HTTP/1.1 200 OK
       Content-Type: text/javascript
 
-   :<json string device_name: The device to use
-   :<json string type: The type of event to subscribe to
+   :<json string feature_name: The device to use
+   :<json string event_type: The type of event to subscribe to
    :<json string callback: The callback to call when the event occurs
    :<json integer timeout: The timeout in seconds
    :status 200: no error

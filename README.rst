@@ -104,15 +104,33 @@ Arduino IDE
 7. Once sucessfully uploaded, connect a momentary push button to ``GPIO 0`` and
    a LED to ``GPIO 2``. See the following connection diagram for a reference.
 
+   .. figure:: http://imgur.com/WHAqMvK.png
+      :width: 1158px
+      :height: 1008px
+      :scale: 75 %
+      :alt: breadboard connection diagram
+
+      If you are using a simple FTDI module to communicate with the ESP-01
+      module, you can use this connection diagram.
+
+   .. figure:: http://imgur.com/mI5aI6r.png
+      :width: 1011px
+      :height: 711px
+      :scale: 75 %
+      :alt: schematic
+
+      The schematic
+
+
 8. If you see the following output from the Serial port, your module is
    sucessfully connected to your WiFi and ready to receive commands and send
    events::
 
      Starting...
 
-     Wait for WiFi... 
+     Wait for WiFi...
      WiFi connected
-     IP address: 
+     IP address:
      192.168.1.113
 
 9. You should be able to push the momentary button to toggle the LED. Using a
@@ -137,6 +155,6 @@ SmartThings
 
 After your ESP8266 module is sucessfully connected to your WiFi network, you can
 then begin the intergration into your IoT ecosystem. Currently, only the SmartThings
-ecosystem is supported, but there are plans to integrate with othes such as 
-OpenHAB, Blynk, IFTTT, AWS IoT etc. 
+ecosystem is supported, but there are plans to integrate with othes such as
+OpenHAB, Blynk, IFTTT, AWS IoT etc.
 
