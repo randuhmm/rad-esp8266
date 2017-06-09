@@ -36,10 +36,10 @@ void switch_1_set(uint8_t value) {
   Serial.print("switch_1_set(): ");
   if(value) {
     Serial.println("ON");
-    digitalWrite(SWITCH_PIN, LOW);
+    digitalWrite(SWITCH_PIN, HIGH);
   } else {
     Serial.println("OFF");
-    digitalWrite(SWITCH_PIN, HIGH);
+    digitalWrite(SWITCH_PIN, LOW);
   }
   switch_1_state = value;
 }
