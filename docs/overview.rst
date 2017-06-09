@@ -22,6 +22,6 @@ Examples
 --------
 
 
-.. |qs_bb_img| image:: _static/RADESP8266_bb.png
+.. |qs_bb_img| image:: _static/RADESP8266_bb_txt.png
 
 .. |qs_schem_img| image:: _static/RADESP8266_schem.png

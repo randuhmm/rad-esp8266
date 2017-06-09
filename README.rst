@@ -9,9 +9,9 @@ rad-esp8266
   :target: http://rad-esp8266.readthedocs.io/en/latest/?badge=latest
   :alt: Documentation Status
 
-.. |qs_bb_img| image:: http://imgur.com/WHAqMvK.png
+.. |qs_bb_img| image:: http://imgur.com/mKBWFeX.png
 
-.. |qs_schem_img| image:: http://imgur.com/mI5aI6r.png
+.. |qs_schem_img| image:: http://imgur.com/2j4QTcC.png
 
 
 Documentation
@@ -120,7 +120,7 @@ Arduino IDE
 
      Starting...
 
-     Wait for WiFi...
+     Connecting to YOUR_SSID...
      WiFi connected
      IP address:
      192.168.1.113
