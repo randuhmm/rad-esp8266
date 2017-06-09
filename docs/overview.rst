@@ -10,8 +10,7 @@ Overview
   :alt: Documentation Status
 
 .. include:: ../README.rst
-  :start-line: 19
-  :end-line: 148
+  :start-line: 24
 
 Install
 -------

@@ -9,6 +9,11 @@ rad-esp8266
   :target: http://rad-esp8266.readthedocs.io/en/latest/?badge=latest
   :alt: Documentation Status
 
+.. |qs_bb_img| image:: http://imgur.com/WHAqMvK.png
+
+.. |qs_schem_img| image:: http://imgur.com/mI5aI6r.png
+
+
 Documentation
 -------------
 
@@ -144,8 +149,3 @@ After your ESP8266 module is sucessfully connected to your WiFi network, you can
 then begin the intergration into your IoT ecosystem. Currently, only the SmartThings
 ecosystem is supported, but there are plans to integrate with othes such as
 OpenHAB, Blynk, IFTTT, AWS IoT etc.
-
-
-.. |qs_bb_img| image:: http://imgur.com/WHAqMvK.png
-
-.. |qs_schem_img| image:: http://imgur.com/mI5aI6r.png
