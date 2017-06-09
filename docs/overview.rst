@@ -11,6 +11,7 @@ Overview
 
 .. include:: ../README.rst
   :start-line: 19
+  :end-line: 148
 
 Install
 -------
@@ -20,3 +21,8 @@ Usage
 
 Examples
 --------
+
+
+.. |qs_bb_img| image:: _static/RADESP8266_bb.png
+
+.. |qs_schem_img| image:: _static/RADESP8266_schem.png
