@@ -10,7 +10,7 @@ Overview
   :alt: Documentation Status
 
 .. include:: ../README.rst
-  :start-line: 19
+  :start-line: 24
 
 Install
 -------
@@ -20,3 +20,8 @@ Usage
 
 Examples
 --------
+
+
+.. |qs_bb_img| image:: _static/RADESP8266_bb_txt.png
+
+.. |qs_schem_img| image:: _static/RADESP8266_schem.png

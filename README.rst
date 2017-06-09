@@ -9,16 +9,22 @@ rad-esp8266
   :target: http://rad-esp8266.readthedocs.io/en/latest/?badge=latest
   :alt: Documentation Status
 
+.. |qs_bb_img| image:: http://imgur.com/mKBWFeX.png
+
+.. |qs_schem_img| image:: http://imgur.com/2j4QTcC.png
+
+
 Documentation
 -------------
 
-The full documentation is at https://rad-ESP8266.rtfd.org.
+The full documentation is at http://rad-ESP8266.rtfd.org.
 
 Overview
 --------
 
-An IoT framework for communicating with and controlling ESP8266 modules using a
-Pub-Sub_ HTTP API.
+RAD-ESP8266 is an IoT framework for communicating with and controlling ESP8266
+modules using a Pub-Sub_ HTTP API. It is designed to work in conjunction with
+the rad-home package to enable communication across various IoT ecosystems.
 
 This library builds on top of existing libraries such as ArduinoJson,
 LinkedList and ESP8266-Core libraries such as ESP8266SSDP and ESP8266WebServer
@@ -104,23 +110,9 @@ Arduino IDE
 7. Once sucessfully uploaded, connect a momentary push button to ``GPIO 0`` and
    a LED to ``GPIO 2``. See the following connection diagram for a reference.
 
-   .. figure:: http://imgur.com/WHAqMvK.png
-      :width: 1158px
-      :height: 1008px
-      :scale: 75 %
-      :alt: breadboard connection diagram
+   |qs_bb_img|
 
-      If you are using a simple FTDI module to communicate with the ESP-01
-      module, you can use this connection diagram.
-
-   .. figure:: http://imgur.com/mI5aI6r.png
-      :width: 1011px
-      :height: 711px
-      :scale: 75 %
-      :alt: schematic
-
-      The schematic
-
+   |qs_schem_img|
 
 8. If you see the following output from the Serial port, your module is
    sucessfully connected to your WiFi and ready to receive commands and send
@@ -128,7 +120,7 @@ Arduino IDE
 
      Starting...
 
-     Wait for WiFi...
+     Connecting to YOUR_SSID...
      WiFi connected
      IP address:
      192.168.1.113
@@ -157,4 +149,3 @@ After your ESP8266 module is sucessfully connected to your WiFi network, you can
 then begin the intergration into your IoT ecosystem. Currently, only the SmartThings
 ecosystem is supported, but there are plans to integrate with othes such as
 OpenHAB, Blynk, IFTTT, AWS IoT etc.
-
