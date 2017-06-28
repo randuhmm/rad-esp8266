@@ -220,12 +220,22 @@ bool RADConnector::begin(void) {
   // Add the HTTP handlers
   _http.on(RAD_INFO_PATH, std::bind(&RADConnector::handleInfo, this));
   _http.on(RAD_FEATURES_PATH, std::bind(&RADConnector::handleFeatures, this));
-  _http.on(RAD_SUBSCRIPTIONS_PATH, std::bind(&RADConnector::handleSubscriptions, this));
-  _http.on(RAD_COMMANDS_PATH, std::bind(&RADConnector::handleCommands, this));
-  // on(RAD_FEATURES_PATH "/{}" RAD_EVENTS_PATH,
-  //    std::bind(&RADConnector::handleFeatureEvents, this, std::placeholders::_1));
-  // on(RAD_SUBSCRIPTIONS_PATH "/{}",
-  //    std::bind(&RADConnector::handleSubscription, this, std::placeholders::_1));
+  _http.on(RAD_SUBSCRIPTIONS_PATH, std::bind(&RADConnector::handleSubscriptions, this, (RADFeature*)NULL));
+  _http.on(RAD_COMMANDS_PATH, std::bind(&RADConnector::handleCommands, this, (RADFeature*)NULL));
+  _http.on(RAD_EVENTS_PATH, std::bind(&RADConnector::handleEvents, this, (RADFeature*)NULL));
+
+  // Loop through features and add HTTP handlers
+  RADFeature* _http_feature = NULL;
+  char _path_buffer[255];
+  for(int i = 0; i < _features.size(); i++) {
+    _http_feature = _features.get(i);
+    snprintf(_path_buffer, 255, RAD_FEATURES_PATH "/%s" RAD_SUBSCRIPTIONS_PATH, _http_feature->getName());
+    _http.on(_path_buffer, std::bind(&RADConnector::handleSubscriptions, this, _http_feature));
+    snprintf(_path_buffer, 255, RAD_FEATURES_PATH "/%s" RAD_COMMANDS_PATH, _http_feature->getName());
+    _http.on(_path_buffer, std::bind(&RADConnector::handleCommands, this, _http_feature));
+    snprintf(_path_buffer, 255, RAD_FEATURES_PATH "/%s" RAD_EVENTS_PATH, _http_feature->getName());    
+    _http.on(_path_buffer, std::bind(&RADConnector::handleEvents, this, _http_feature));
+  }
 
   // Prepare the SSDP configuration
   _http.collectHeaders(HEADERS, 4);
@@ -297,8 +307,8 @@ void RADConnector::handleInfo(void) {
 }
 
 
-void RADConnector::handleFeatures(void) {
-  Serial.println("/features");
+void RADConnector::handleFeatures() {
+  Serial.println("RADConnector::handleFeatures");
   int code = 200;
   if(_http.method() == HTTP_GET) {
     // Prepare the JSON response
@@ -321,8 +331,8 @@ void RADConnector::handleFeatures(void) {
 }
 
 
-void RADConnector::handleSubscriptions(void) {
-  Serial.println("/subscriptions");
+void RADConnector::handleSubscriptions(RADFeature* feature) {
+  Serial.println("RADConnector::handleSubscriptions");
   int code = 200;
   long current = millis();
   if(_http.method() == HTTP_GET) {
@@ -395,7 +405,7 @@ void RADConnector::handleSubscriptions(void) {
 }
 
 
-void RADConnector::handleCommands(void) {
+void RADConnector::handleCommands(RADFeature* feature) {
   int code = 200;
   uint8_t value;
   String message = "";
@@ -458,20 +468,13 @@ void RADConnector::handleCommands(void) {
   }
 }
 
-/*
-void RADConnector::handleEvents(LinkedList<String>& segments) {
-  Serial.println("/features/{}/events");
-  _http.send(200, "application/json", "/features/{}/events");
+
+void RADConnector::handleEvents(RADFeature* feature) {
+  Serial.println("RADConnector::handleEvents");
+  _http.send(200, "application/json", "RADConnector::handleEvents");
   return;
 }
 
-
-void RADConnector::handleSubscription(LinkedList<String>& segments) {
-  Serial.println("/subscriptions/{}");
-  _http.send(200, "application/json", "/subscriptions/{}");
-  return;
-}
-*/
 
 uint8_t RADConnector::execute(const char* name, CommandType command_type) {
   RADFeature* feature;

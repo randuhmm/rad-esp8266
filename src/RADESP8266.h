@@ -84,7 +84,13 @@ static const char* _info_template =
   "    \"model\": \"" RAD_MODEL_NAME "\",\r\n"
   "    \"description\": \"Rad ESP8266 WiFi Module for IoT Integration\",\r\n"
   "    \"serial\": \"\",\r\n"
-  "    \"UDN\": \"uuid:%s\"\r\n"
+  "    \"UDN\": \"uuid:%s\",\r\n"
+  "    \"links\": {\r\n"
+  "        \"features\": \"/features\",\r\n"
+  "        \"commands\": \"/commands\",\r\n"
+  "        \"events\": \"/events\",\r\n"
+  "        \"subscriptions\": \"/subscriptions\"\r\n"
+  "    }\r\n"
   "}\r\n"
   "\r\n";
 
@@ -182,9 +188,10 @@ class RADConnector
     // HTTP Path Handler Functions
     void handleInfo(void);
     void handleFeatures(void);
-    void handleSubscriptions(void);
-    void handleCommands(void);
-    // void handleEvents(LinkedList<String>& segments);
+    //void handleFeature(RADFeature* feature);
+    void handleSubscriptions(RADFeature* feature);
+    void handleCommands(RADFeature* feature);
+    void handleEvents(RADFeature* feature);
     // void handleSubscription(LinkedList<String>& segments);
 
     // Execution Methods
