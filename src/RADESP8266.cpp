@@ -229,11 +229,11 @@ bool RADConnector::begin(void) {
   char _path_buffer[255];
   for(int i = 0; i < _features.size(); i++) {
     _http_feature = _features.get(i);
-    snprintf(_path_buffer, 255, RAD_FEATURES_PATH "/%s" RAD_SUBSCRIPTIONS_PATH, _http_feature->getName());
+    snprintf(_path_buffer, sizeof(_path_buffer), RAD_FEATURES_PATH "/%s" RAD_SUBSCRIPTIONS_PATH, _http_feature->getName());
     _http.on(_path_buffer, std::bind(&RADConnector::handleSubscriptions, this, _http_feature));
-    snprintf(_path_buffer, 255, RAD_FEATURES_PATH "/%s" RAD_COMMANDS_PATH, _http_feature->getName());
+    snprintf(_path_buffer, sizeof(_path_buffer), RAD_FEATURES_PATH "/%s" RAD_COMMANDS_PATH, _http_feature->getName());
     _http.on(_path_buffer, std::bind(&RADConnector::handleCommands, this, _http_feature));
-    snprintf(_path_buffer, 255, RAD_FEATURES_PATH "/%s" RAD_EVENTS_PATH, _http_feature->getName());    
+    snprintf(_path_buffer, sizeof(_path_buffer), RAD_FEATURES_PATH "/%s" RAD_EVENTS_PATH, _http_feature->getName());    
     _http.on(_path_buffer, std::bind(&RADConnector::handleEvents, this, _http_feature));
   }
 
@@ -314,6 +314,7 @@ void RADConnector::handleFeatures() {
     // Prepare the JSON response
     StaticJsonBuffer<1024> featuresBuffer;
     char featuresString[1024];
+    char linkBuff[255];
     JsonArray& features = featuresBuffer.createArray();
     RADFeature* feature;
     for(int i = 0; i < _features.size(); i++) {
@@ -322,6 +323,15 @@ void RADConnector::handleFeatures() {
       feature_json["feature_name"] = feature->getName();
       feature_json["feature_type"] = sendFeatureType(feature->getType());
       feature_json["description"] = "";
+      JsonObject& links_json = feature_json.createNestedObject("links");
+      snprintf(linkBuff, sizeof(linkBuff), RAD_FEATURES_PATH "/%s", feature->getName());
+      links_json["details"] = String(linkBuff);
+      snprintf(linkBuff, sizeof(linkBuff), RAD_FEATURES_PATH "/%s" RAD_COMMANDS_PATH, feature->getName());
+      links_json["commands"] = String(linkBuff);
+      snprintf(linkBuff, sizeof(linkBuff), RAD_FEATURES_PATH "/%s" RAD_SUBSCRIPTIONS_PATH, feature->getName());
+      links_json["subscriptions"] = String(linkBuff);
+      snprintf(linkBuff, sizeof(linkBuff), RAD_FEATURES_PATH "/%s" RAD_EVENTS_PATH, feature->getName());
+      links_json["events"] = String(linkBuff);
     }
     features.printTo(featuresString, sizeof(featuresString));
     _http.send(code, "application/json", featuresString);
@@ -340,15 +350,16 @@ void RADConnector::handleSubscriptions(RADFeature* feature) {
     StaticJsonBuffer<1024> subscriptionsBuffer;
     char subscriptionsString[1024];
     JsonArray& subscriptions = subscriptionsBuffer.createArray();
-    RADFeature* feature;
+    RADFeature* featureIt;
     RADSubscription* subscription;
     for(int i = 0; i < _subscriptions.size(); i++) {
       subscription = _subscriptions.get(i);
       if(subscription->isActive(current)) {
-        feature = subscription->getFeature();
+        featureIt = subscription->getFeature();
+        if(feature != NULL && feature != featureIt) continue;
         JsonObject& subscription_json = subscriptions.createNestedObject();
         subscription_json["id"] = subscription->getSid();
-        subscription_json["feature_name"] = feature->getName();
+        subscription_json["feature_name"] = featureIt->getName();
         subscription_json["event_type"] = sendEventType(subscription->getType());
         subscription_json["callback"] = subscription->getCallback();
         subscription_json["timeout"] = subscription->getTimeout();
@@ -357,11 +368,12 @@ void RADConnector::handleSubscriptions(RADFeature* feature) {
     }
     subscriptions.printTo(subscriptionsString, sizeof(subscriptionsString));
     _http.send(code, "application/json", subscriptionsString);
+  // POST Method
   } else if(_http.method() == HTTP_POST) {
     String message = "";
     StaticJsonBuffer<255> jsonBuffer;
     JsonObject& root = jsonBuffer.parseObject(_http.arg("plain"));
-    if(!root.containsKey("feature_name")) {
+    if(feature == NULL && !root.containsKey("feature_name")) {
       code = 400;
       message = "{\"error\": \"Missing required property 'feature_name'.\"}";
     } else if(!root.containsKey("event_type")) {
@@ -371,15 +383,20 @@ void RADConnector::handleSubscriptions(RADFeature* feature) {
       code = 400;
       message = "{\"error\": \"Missing required property 'callback'.\"}";
     } else {
-      const char* feature_name = root["feature_name"];
       EventType type = getEventType(root["event_type"]);
       const char* callback = root["callback"];
       int timeout = RAD_MIN_TIMEOUT;
       if(root.containsKey("timeout")) {
         timeout = root["timeout"];
       }
-      RADFeature* feature = getFeature(feature_name);
-      if (feature == NULL) {
+      RADFeature* featureTarget;
+      if(feature == NULL) {
+        const char* feature_name = root["feature_name"];
+        featureTarget = getFeature(feature_name);
+      } else {
+        featureTarget = feature;
+      }
+      if (featureTarget == NULL) {
         code = 400;
         message = "{\"error\": \"Feature could not be located.\"}";
       } else if(type == NullEvent) {
@@ -389,9 +406,7 @@ void RADConnector::handleSubscriptions(RADFeature* feature) {
         code = 400;
         message = "{\"error\": \"The timeout property can not be less than 600 seconds.\"}";
       } else {
-        // RADSubscription* subscription = feature->subscribe(type, callback);
-        // add(subscription);
-        RADSubscription* subscription = subscribe(feature, type, callback, timeout);
+        RADSubscription* subscription = subscribe(featureTarget, type, callback, timeout);
         char sid[100];
         snprintf(sid, sizeof(sid), "uuid:%s", subscription->getSid());
         _http.sendHeader("SID", sid);
