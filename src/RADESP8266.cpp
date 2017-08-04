@@ -507,14 +507,7 @@ bool RADConnector::execute(const char* feature_id, CommandType command_type, RAD
 
 
 bool RADConnector::execute(const char* feature_id, CommandType command_type, bool data, RADPayload* response) {
-  RADPayload* payload = new RADPayload();
-  payload->len = 1;
-  payload->data = (uint8_t*)malloc(payload->len * sizeof(uint8_t));
-  if(data) {
-    payload->data[0] = 0;
-  } else {
-    payload->data[0] = 255;
-  }
+  RADPayload* payload = RADConnector::BuildPayload(data);
   bool result = execute(feature_id, command_type, payload, response);
   delete payload;
   return result;
@@ -522,10 +515,7 @@ bool RADConnector::execute(const char* feature_id, CommandType command_type, boo
 
 
 bool RADConnector::execute(const char* feature_id, CommandType command_type, uint8_t data, RADPayload* response) {
-  RADPayload* payload = new RADPayload();
-  payload->len = 1;
-  payload->data = (uint8_t*)malloc(payload->len * sizeof(uint8_t));
-  payload->data[0] = data;
+  RADPayload* payload = RADConnector::BuildPayload(data);
   bool result = execute(feature_id, command_type, payload, response);
   delete payload;
   return result;
@@ -546,6 +536,36 @@ bool RADConnector::execute(const char* feature_id, CommandType command_type, RAD
 }
 
 
+RADPayload* RADConnector::BuildPayload(bool data) {
+  RADPayload* payload = new RADPayload();
+  payload->len = 1;
+  payload->data = (uint8_t*)malloc(payload->len * sizeof(uint8_t));
+  if(data) {
+    payload->data[0] = 0;
+  } else {
+    payload->data[0] = 255;
+  }
+  return payload;
+}
+
+
+RADPayload* RADConnector::BuildPayload(uint8_t data) {
+  RADPayload* payload = new RADPayload();
+  payload->len = 1;
+  payload->data = (uint8_t*)malloc(payload->len * sizeof(uint8_t));
+  payload->data[0] = data;
+  return payload;
+}
+
+
+RADPayload* RADConnector::BuildPayload(uint8_t* data, uint8_t len) {
+  RADPayload* payload = new RADPayload();
+  payload->len = len;
+  payload->data = data;
+  return payload;
+}
+
+
 RADFeature::RADFeature(FeatureType type, const char* id, const char* name) {
   _type = type;
   _id = id;
@@ -554,41 +574,63 @@ RADFeature::RADFeature(FeatureType type, const char* id, const char* name) {
   } else {
     _name = name;
   }
-  _setCallback = NULL;
-  _getCallback = NULL;
+  _getCb = NULL;
+  _setBoolCb = NULL;
+  _setByteCb = NULL;
+  _setByteArrayCb = NULL;
+  _triggerCb = NULL;
 }
 
 
 bool RADFeature::execute(CommandType command_type, RADPayload* payload, RADPayload* response) {
   bool result = false;
-  RADPayload* tmpResponse;
-  SetFp set = NULL;
+  RADPayload* getResponse;
+  TriggerFp trigger = NULL;
+  SetBoolFp setBool = NULL;
+  SetByteFp setByte = NULL;
+  SetByteArrayFp setByteArray = NULL;
   GetFp get = NULL;
   switch(command_type) {
+    case Trigger:
+      switch(_type) {
+        case TriggerFeature:
+          trigger = _triggerCb;
+          break;
+      }
+      if(trigger != NULL) {
+        result = trigger();
+      }
+      break;
     case Set:
       switch(_type) {
         case SwitchBinary:
-          set = _setCallback;
+          setBool = _setBoolCb;
           break;
       }
-      if(set != NULL) {
-        result = set(payload);
+      if(setBool != NULL) {
+        if(payload != NULL && payload->type == BoolPayload && payload->len == 1) {
+          result = setBool(payload);
+        }
+      } else if(setByte != NULL) {
+        result = false;
+      } else if(setByteArray != NULL) {
+        result = false;
       }
       break;
     case Get:
       switch(_type) {
         case SwitchBinary:
-          get = _getCallback;
+          get = _getCb;
           break;
       }
       if(get != NULL) {
-        tmpResponse = get();
+        getResponse = get();
         result = true;
         if(response != NULL) {
-          response->len = tmpResponse->len;
-          response->data = tmpResponse->data;
+          response->len = getResponse->len;
+          response->data = getResponse->data;
         }
-        delete tmpResponse;
+        delete getResponse;
       }
       break;
   }

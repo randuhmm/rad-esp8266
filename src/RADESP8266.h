@@ -52,14 +52,16 @@ enum FeatureType {
     SwitchBinary     = 1,
     SensorBinary     = 2,
     SwitchMultiLevel = 3,
-    SensorMultiLevel = 4
+    SensorMultiLevel = 4,
+    TriggerFeature   = 5
 };
 
 // Command Types
 enum CommandType {
     NullCommand  = 0,
     Get          = 1,
-    Set          = 2
+    Set          = 2,
+    Trigger      = 3
 };
 
 // Event Types
@@ -70,17 +72,32 @@ enum EventType {
     State      = 3
 };
 
-// Payload Struct
+// Payload Types
+enum PayloadType {
+  NullPayload      = 0,
+  BoolPayload      = 1,
+  BytePayload      = 2,
+  ByteArrayPayload = 3
+};
+
+// 8-bit Integer Definition
+typedef unsigned char uint8_t;
+
+// Payload Struct Definition
 struct RADPayload {
+  PayloadType type;
   uint8_t len;
   uint8_t* data;
 };
 
-typedef unsigned char uint8_t;
-
-typedef bool (* SetFp)(RADPayload*);
+// Callback Definitions
+typedef bool (* TriggerFp)();
+typedef bool (* SetBoolFp)(bool);
+typedef bool (* SetByteFp)(uint8_t);
+typedef bool (* SetByteArrayFp)(uint8_t*, uint8_t);
 typedef RADPayload* (* GetFp)(void);
 
+// Forward Declaration of RADFeature
 class RADFeature;
 
 static const char* _info_template =
@@ -150,8 +167,11 @@ class RADFeature {
     const char* _id;
     const char* _name;
 
-    SetFp _setCallback;
-    GetFp _getCallback;
+    GetFp             _getCb;
+    SetBoolFp         _setBoolCb;
+    SetByteFp         _setByteCb;
+    SetByteArrayFp    _setByteArrayCb;
+    TriggerFp         _triggerCb;
 
     LinkedList<RADSubscription*> _subscriptions;
 
@@ -159,14 +179,15 @@ class RADFeature {
 
     RADFeature(FeatureType type, const char* id, const char* name=NULL);
 
-
-
     FeatureType getType() { return _type; };
     const char* getId() { return _id; };
     const char* getName() { return _name; };
 
-    void callback(CommandType command_type, SetFp func) { _setCallback = func; };
-    void callback(CommandType command_type, GetFp func) { _getCallback = func; };
+    void callback(CommandType command_type, GetFp func) { _getCb = func; };
+    void callback(CommandType command_type, SetBoolFp func) { _setBoolCb = func; };
+    void callback(CommandType command_type, SetByteFp func) { _setByteCb = func; };
+    void callback(CommandType command_type, SetByteArrayFp func) { _setByteArrayCb = func; };
+    void callback(CommandType command_type, TriggerFp func) { _triggerCb = func; };
 
     bool execute(CommandType command_type, RADPayload* payload, RADPayload* response);
 
@@ -212,6 +233,7 @@ class RADConnector
     bool execute(const char* feature_id, CommandType command_type, RADPayload* response);
     bool execute(const char* feature_id, CommandType command_type, bool data, RADPayload* response);
     bool execute(const char* feature_id, CommandType command_type, uint8_t data, RADPayload* response);
+    //bool execute(const char* feature_id, CommandType command_type, uint8_t* data, uint8_t len, RADPayload* response);
     bool execute(const char* feature_id, CommandType command_type, RADPayload* payload, RADPayload* response);
 
   public:
@@ -228,6 +250,10 @@ class RADConnector
     void update(void);
 
     RADFeature* getFeature(const char* feature_id);
+
+    static RADPayload* BuildPayload(bool data);
+    static RADPayload* BuildPayload(uint8_t data);
+    static RADPayload* BuildPayload(uint8_t* data, uint8_t len);
 
 };
 

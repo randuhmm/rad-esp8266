@@ -20,7 +20,7 @@ const char* pass = "YOUR_PASSWORD";
 RADConnector rad("MyESP");
 RADFeature switch_1(SwitchBinary, "switch_1");
 const int SWITCH_PIN = 2;
-uint8_t switch_1_state = false;
+bool switch_1_state = false;
 
 
 // State variables for momentary push button
@@ -56,16 +56,15 @@ void switch_1_toggle() {
 }
 
 
-bool switch_1_on_set(RADPayload* data) {
+bool switch_1_on_set(bool on) {
   Serial.print("switch_1_set(): ");
+  switch_1_set(on);
   return true;
 }
 
 
 RADPayload* switch_1_on_get(void) {
-  RADPayload* data = new RADPayload();
-  // return switch_1_state;
-  return data;
+  return RADConnector::BuildPayload(switch_1_state);
 }
 
 
