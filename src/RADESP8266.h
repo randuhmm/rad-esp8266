@@ -174,7 +174,7 @@ class RADFeature {
     void send(EventType event_type, bool data);
     void send(EventType event_type, uint8_t data);
     void send(EventType event_type, uint8_t* data, uint8_t len);
-    void send(EventType event_type, RADPayload* payload);
+    void sendEvent(EventType event_type, String body);
 
     void add(RADSubscription* subscription);
     void remove(RADSubscription* subscription);

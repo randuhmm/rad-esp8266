@@ -597,17 +597,24 @@ bool RADFeature::execute(CommandType command_type, RADPayload* payload, RADPaylo
 
 
 void RADFeature::send(EventType event_type) {
-
+  sendEvent(event_type, "");
 }
 
 
 void RADFeature::send(EventType event_type, bool data) {
-
+  if(data) {
+    sendEvent(event_type, "true");
+  } else {
+    sendEvent(event_type, "false");
+  }
 }
 
 
 void RADFeature::send(EventType event_type, uint8_t data) {
-
+  char buff[32];
+  snprintf(buff, sizeof(buff), "%d", data);
+  String body = buff;
+  sendEvent(event_type, body);
 }
 
 
@@ -616,20 +623,8 @@ void RADFeature::send(EventType event_type, uint8_t* data, uint8_t len) {
 }
 
 
-void RADFeature::send(EventType event_type, RADPayload* payload) {
+void RADFeature::sendEvent(EventType event_type, String body) {
   RADSubscription* s;
-  String message = "";
-  // switch(event_type) {
-  //   case State:
-  //     switch(_type) {
-  //       case SwitchBinary:
-  //       char buff[100];
-  //       snprintf(buff, sizeof(buff), "{\"type\": \"state\", \"value\": %d}", value);
-  //       message = buff;
-  //     }
-  //     break;
-  // }
-
   for(int i = 0; i < _subscriptions.size(); i++) {
     s = _subscriptions.get(i);
     if(s->getType() == event_type) {
@@ -637,8 +632,9 @@ void RADFeature::send(EventType event_type, RADPayload* payload) {
       http.begin(s->getCallback());
       http.addHeader("SID", s->getSid());
       http.addHeader("RAD-ID", _id);
+      http.addHeader("RAD-EVENT", sendEventType(event_type));
       http.addHeader("Content-Type", "application/json");
-      int httpCode = http.sendRequest("NOTIFY", message);
+      int httpCode = http.sendRequest("NOTIFY", body);
       if(httpCode > 0) {
         if(httpCode == HTTP_CODE_OK) {
             String response = http.getString();
