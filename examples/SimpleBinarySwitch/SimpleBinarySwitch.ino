@@ -32,7 +32,7 @@ int button_state = HIGH;
 static long start_press = 0;
 
 
-void switch_1_set(uint8_t value) {
+void switch_1_set(bool value) {
   Serial.print("switch_1_set(): ");
   if(value) {
     Serial.println("ON");
@@ -56,8 +56,16 @@ void switch_1_toggle() {
 }
 
 
-uint8_t switch_1_get(void) {
-  return switch_1_state;
+bool switch_1_on_set(RADPayload* data) {
+  Serial.print("switch_1_set(): ");
+  return true;
+}
+
+
+RADPayload* switch_1_on_get(void) {
+  RADPayload* data = new RADPayload();
+  // return switch_1_state;
+  return data;
 }
 
 
@@ -103,8 +111,8 @@ void setup() {
 
   // Create the devices here
   rad.add(&switch_1);
-  switch_1.callback(Set, switch_1_set);
-  switch_1.callback(Get, switch_1_get);
+  switch_1.callback(Set, switch_1_on_set);
+  switch_1.callback(Get, switch_1_on_get);
   rad.begin();
 
   // Setup the momentary push button pin

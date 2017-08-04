@@ -70,10 +70,16 @@ enum EventType {
     State      = 3
 };
 
+// Payload Struct
+struct RADPayload {
+  uint8_t len;
+  uint8_t* data;
+};
+
 typedef unsigned char uint8_t;
 
-typedef void (* SET_FP)(uint8_t);
-typedef uint8_t (* GET_FP)(void);
+typedef bool (* SetFp)(RADPayload*);
+typedef RADPayload* (* GetFp)(void);
 
 class RADFeature;
 
@@ -111,7 +117,9 @@ class RADSubscription {
 
   public:
 
-    RADSubscription(RADFeature* feature, const char* sid, EventType type, const char* callback, int timeout, int calls=0, int errors=0) {
+    RADSubscription(RADFeature* feature, const char* sid, EventType type,
+                    const char* callback, int timeout, int calls=0,
+                    int errors=0) {
       _feature = feature;
       _type = type;
       _timeout = timeout;
@@ -142,14 +150,14 @@ class RADFeature {
     const char* _id;
     const char* _name;
 
-    SET_FP _setCallback;
-    GET_FP _getCallback;
+    SetFp _setCallback;
+    GetFp _getCallback;
 
     LinkedList<RADSubscription*> _subscriptions;
 
   public:
 
-    RADFeature(FeatureType type, const char* id, const char* name = NULL);
+    RADFeature(FeatureType type, const char* id, const char* name=NULL);
 
 
 
@@ -157,14 +165,16 @@ class RADFeature {
     const char* getId() { return _id; };
     const char* getName() { return _name; };
 
-    void callback(CommandType command_type, SET_FP func) { _setCallback = func; };
-    void callback(CommandType command_type, GET_FP func) { _getCallback = func; };
+    void callback(CommandType command_type, SetFp func) { _setCallback = func; };
+    void callback(CommandType command_type, GetFp func) { _getCallback = func; };
 
-    uint8_t execute(CommandType command_type);
-    bool execute(CommandType command_type, uint8_t value);
+    bool execute(CommandType command_type, RADPayload* payload, RADPayload* response);
 
     void send(EventType event_type);
-    void send(EventType event_type, uint8_t value);
+    void send(EventType event_type, bool data);
+    void send(EventType event_type, uint8_t data);
+    void send(EventType event_type, uint8_t* data, uint8_t len);
+    void send(EventType event_type, RADPayload* payload);
 
     void add(RADSubscription* subscription);
     void remove(RADSubscription* subscription);
@@ -199,10 +209,10 @@ class RADConnector
     // void handleSubscription(LinkedList<String>& segments);
 
     // Execution Methods
-    uint8_t execute(const char* feature_id, CommandType command_type);
-    uint8_t execute(RADFeature* feature, CommandType command_type);
-    bool execute(const char* feature_id, CommandType command_type, uint8_t value);
-    bool execute(RADFeature* feature, CommandType command_type, uint8_t value);
+    bool execute(const char* feature_id, CommandType command_type, RADPayload* response);
+    bool execute(const char* feature_id, CommandType command_type, bool data, RADPayload* response);
+    bool execute(const char* feature_id, CommandType command_type, uint8_t data, RADPayload* response);
+    bool execute(const char* feature_id, CommandType command_type, RADPayload* payload, RADPayload* response);
 
   public:
 
@@ -211,7 +221,7 @@ class RADConnector
     void add(RADFeature* feature);
 
     RADSubscription* subscribe(RADFeature* feature, EventType event_type,
-                            const char* callback, int timeout=RAD_MIN_TIMEOUT);
+                               const char* callback, int timeout=RAD_MIN_TIMEOUT);
     void unsubscribe(int index);
 
     bool begin(void);

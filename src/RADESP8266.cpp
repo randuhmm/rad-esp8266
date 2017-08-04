@@ -424,19 +424,27 @@ void RADConnector::handleSubscriptions(RADFeature* feature) {
 void RADConnector::handleCommands(RADFeature* feature) {
   int code = 200;
   uint8_t value;
+  bool result = false;
+  RADPayload* response = NULL;
   String message = "";
   if(_http.method() == HTTP_POST) {
     StaticJsonBuffer<255> jsonBuffer;
     JsonObject& root = jsonBuffer.parseObject(_http.arg("plain"));
-    if(!root.containsKey("feature_id")) {
+    if(feature = NULL && !root.containsKey("feature_id")) {
       code = 400;
       message = "{\"error\": \"Missing required property, 'feature_id'.\"}";
     }else  if(!root.containsKey("command_type")) {
       code = 400;
       message = "{\"error\": \"Missing required property, 'command_type'.\"}";
     } else {
-      RADFeature* feature = getFeature(root["feature_id"]);
+      RADFeature* featureTarget;
       if(feature == NULL) {
+        const char* feature_id = root["feature_id"];
+        featureTarget = getFeature(feature_id);
+      } else {
+        featureTarget = feature;
+      }
+      if(featureTarget == NULL) {
         code = 400;
         message = "{\"error\": \"Invalid 'feature_id' value.\"}";
       } else {
@@ -456,7 +464,7 @@ void RADConnector::handleCommands(RADFeature* feature) {
                   message = "{\"error\": \"Missing required property, 'value'.\"}";
               } else {
                 value = data["value"];
-                bool result = execute(feature, Set, value);
+                result = execute(featureTarget->getId(), Set, value, (RADPayload*)NULL);
                 if(result) {
                   message = "{\"result\": true}";
                 } else {
@@ -466,9 +474,10 @@ void RADConnector::handleCommands(RADFeature* feature) {
             }
             break;
           case Get:
-            value = execute(feature, Get);
+            response = new RADPayload();
+            result = execute(featureTarget->getId(), Get, response);
             char buff[100];
-            snprintf(buff, sizeof(buff), "{\"value\": %d}", value);
+            snprintf(buff, sizeof(buff), "{\"value\": %d}", response->data[0]);
             message = buff;
             break;
           default:
@@ -492,35 +501,48 @@ void RADConnector::handleEvents(RADFeature* feature) {
 }
 
 
-uint8_t RADConnector::execute(const char* feature_id, CommandType command_type) {
+bool RADConnector::execute(const char* feature_id, CommandType command_type, RADPayload* response) {
+  return execute(feature_id, command_type, (RADPayload*)NULL, response);
+}
+
+
+bool RADConnector::execute(const char* feature_id, CommandType command_type, bool data, RADPayload* response) {
+  RADPayload* payload = new RADPayload();
+  payload->len = 1;
+  payload->data = (uint8_t*)malloc(payload->len * sizeof(uint8_t));
+  if(data) {
+    payload->data[0] = 0;
+  } else {
+    payload->data[0] = 255;
+  }
+  bool result = execute(feature_id, command_type, payload, response);
+  delete payload;
+  return result;
+}
+
+
+bool RADConnector::execute(const char* feature_id, CommandType command_type, uint8_t data, RADPayload* response) {
+  RADPayload* payload = new RADPayload();
+  payload->len = 1;
+  payload->data = (uint8_t*)malloc(payload->len * sizeof(uint8_t));
+  payload->data[0] = data;
+  bool result = execute(feature_id, command_type, payload, response);
+  delete payload;
+  return result;
+}
+
+
+bool RADConnector::execute(const char* feature_id, CommandType command_type, RADPayload* payload, RADPayload* response) {
   RADFeature* feature;
+  bool result = false;
   for(int i = 0; i < _features.size(); i++) {
     feature = _features.get(i);
     if(strcmp(feature->getId(), feature_id) == 0) {
-      return execute(feature, command_type);
+      result = feature->execute(command_type, payload, response);
+      break;
     }
   }
-}
-
-
-uint8_t RADConnector::execute(RADFeature* feature, CommandType command_type) {
-  return feature->execute(command_type);
-}
-
-
-bool RADConnector::execute(const char* feature_id, CommandType command_type, uint8_t value) {
-  RADFeature* feature;
-  for(int i = 0; i < _features.size(); i++) {
-    feature = _features.get(i);
-    if(strcmp(feature->getId(), feature_id) == 0) {
-      return execute(feature, command_type, value);
-    }
-  }
-}
-
-
-bool RADConnector::execute(RADFeature* feature, CommandType command_type, uint8_t value) {
-  return feature->execute(command_type, value);
+  return result;
 }
 
 
@@ -537,40 +559,38 @@ RADFeature::RADFeature(FeatureType type, const char* id, const char* name) {
 }
 
 
-uint8_t RADFeature::execute(CommandType command_type) {
-  uint8_t result = 0;
-  switch(command_type) {
-    case Get:
-      GET_FP get = NULL;
-      switch(_type) {
-        case SwitchBinary:
-          get = _getCallback;
-        break;
-      }
-      if(get != NULL) {
-        result = get();
-      }
-    break;
-  }
-  return result;
-}
-
-
-bool RADFeature::execute(CommandType command_type, uint8_t value) {
+bool RADFeature::execute(CommandType command_type, RADPayload* payload, RADPayload* response) {
   bool result = false;
+  RADPayload* tmpResponse;
+  SetFp set = NULL;
+  GetFp get = NULL;
   switch(command_type) {
     case Set:
-      SET_FP set = NULL;
       switch(_type) {
         case SwitchBinary:
           set = _setCallback;
-        break;
+          break;
       }
       if(set != NULL) {
-        set(value);
-        result = true;
+        result = set(payload);
       }
-    break;
+      break;
+    case Get:
+      switch(_type) {
+        case SwitchBinary:
+          get = _getCallback;
+          break;
+      }
+      if(get != NULL) {
+        tmpResponse = get();
+        result = true;
+        if(response != NULL) {
+          response->len = tmpResponse->len;
+          response->data = tmpResponse->data;
+        }
+        delete tmpResponse;
+      }
+      break;
   }
   return result;
 }
@@ -581,19 +601,34 @@ void RADFeature::send(EventType event_type) {
 }
 
 
-void RADFeature::send(EventType event_type, uint8_t value) {
+void RADFeature::send(EventType event_type, bool data) {
+
+}
+
+
+void RADFeature::send(EventType event_type, uint8_t data) {
+
+}
+
+
+void RADFeature::send(EventType event_type, uint8_t* data, uint8_t len) {
+
+}
+
+
+void RADFeature::send(EventType event_type, RADPayload* payload) {
   RADSubscription* s;
   String message = "";
-  switch(event_type) {
-    case State:
-      switch(_type) {
-        case SwitchBinary:
-        char buff[100];
-        snprintf(buff, sizeof(buff), "{\"type\": \"state\", \"value\": %d}", value);
-        message = buff;
-      }
-      break;
-  }
+  // switch(event_type) {
+  //   case State:
+  //     switch(_type) {
+  //       case SwitchBinary:
+  //       char buff[100];
+  //       snprintf(buff, sizeof(buff), "{\"type\": \"state\", \"value\": %d}", value);
+  //       message = buff;
+  //     }
+  //     break;
+  // }
 
   for(int i = 0; i < _subscriptions.size(); i++) {
     s = _subscriptions.get(i);
@@ -606,7 +641,7 @@ void RADFeature::send(EventType event_type, uint8_t value) {
       int httpCode = http.sendRequest("NOTIFY", message);
       if(httpCode > 0) {
         if(httpCode == HTTP_CODE_OK) {
-            String payload = http.getString();
+            String response = http.getString();
         }
       } else {
         Serial.printf("[HTTP] GET... failed, error: %s\n", http.errorToString(httpCode).c_str());
