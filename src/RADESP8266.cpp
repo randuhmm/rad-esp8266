@@ -165,7 +165,7 @@ bool RADConnector::begin(void) {
           JsonObject& subscription = value.as<JsonObject&>();
           // TODO: print out the data for testing
           if(!subscription.containsKey("id") ||
-             !subscription.containsKey("feature_name") ||
+             !subscription.containsKey("feature_id") ||
              !subscription.containsKey("type") ||
              !subscription.containsKey("callback") ||
              !subscription.containsKey("timeout") ||
@@ -174,13 +174,13 @@ bool RADConnector::begin(void) {
             continue;
           } else {
             const char* id = subscription["id"];
-            const char* feature_name = subscription["feature_name"];
+            const char* feature_id = subscription["feature_id"];
             EventType type = getEventType(subscription["type"]);
             const char* callback = subscription["callback"];
             int timeout = subscription["timeout"];
             int calls = subscription["calls"];
             int errors = subscription["errors"];
-            feature = getFeature(feature_name);
+            feature = getFeature(feature_id);
             if(feature == NULL) {
               continue;
             }
@@ -229,11 +229,11 @@ bool RADConnector::begin(void) {
   char _path_buffer[255];
   for(int i = 0; i < _features.size(); i++) {
     _http_feature = _features.get(i);
-    snprintf(_path_buffer, sizeof(_path_buffer), RAD_FEATURES_PATH "/%s" RAD_SUBSCRIPTIONS_PATH, _http_feature->getName());
+    snprintf(_path_buffer, sizeof(_path_buffer), RAD_FEATURES_PATH "/%s" RAD_SUBSCRIPTIONS_PATH, _http_feature->getId());
     _http.on(_path_buffer, std::bind(&RADConnector::handleSubscriptions, this, _http_feature));
-    snprintf(_path_buffer, sizeof(_path_buffer), RAD_FEATURES_PATH "/%s" RAD_COMMANDS_PATH, _http_feature->getName());
+    snprintf(_path_buffer, sizeof(_path_buffer), RAD_FEATURES_PATH "/%s" RAD_COMMANDS_PATH, _http_feature->getId());
     _http.on(_path_buffer, std::bind(&RADConnector::handleCommands, this, _http_feature));
-    snprintf(_path_buffer, sizeof(_path_buffer), RAD_FEATURES_PATH "/%s" RAD_EVENTS_PATH, _http_feature->getName());    
+    snprintf(_path_buffer, sizeof(_path_buffer), RAD_FEATURES_PATH "/%s" RAD_EVENTS_PATH, _http_feature->getId());
     _http.on(_path_buffer, std::bind(&RADConnector::handleEvents, this, _http_feature));
   }
 
@@ -285,10 +285,10 @@ void RADConnector::update(void) {
 }
 
 
-RADFeature* RADConnector::getFeature(const char* name) {
+RADFeature* RADConnector::getFeature(const char* feature_id) {
   RADFeature* feature = NULL;
   for(int i = 0; i < _features.size(); i++) {
-    if(strcmp(_features.get(i)->getName(), name) == 0) {
+    if(strcmp(_features.get(i)->getId(), feature_id) == 0) {
       feature = _features.get(i);
       break;
     }
@@ -320,17 +320,18 @@ void RADConnector::handleFeatures() {
     for(int i = 0; i < _features.size(); i++) {
       feature = _features.get(i);
       JsonObject& feature_json = features.createNestedObject();
-      feature_json["feature_name"] = feature->getName();
-      feature_json["feature_type"] = sendFeatureType(feature->getType());
+      feature_json["id"] = feature->getId();
+      feature_json["name"] = feature->getName();
+      feature_json["type"] = sendFeatureType(feature->getType());
       feature_json["description"] = "";
       JsonObject& links_json = feature_json.createNestedObject("links");
-      snprintf(linkBuff, sizeof(linkBuff), RAD_FEATURES_PATH "/%s", feature->getName());
+      snprintf(linkBuff, sizeof(linkBuff), RAD_FEATURES_PATH "/%s", feature->getId());
       links_json["details"] = String(linkBuff);
-      snprintf(linkBuff, sizeof(linkBuff), RAD_FEATURES_PATH "/%s" RAD_COMMANDS_PATH, feature->getName());
+      snprintf(linkBuff, sizeof(linkBuff), RAD_FEATURES_PATH "/%s" RAD_COMMANDS_PATH, feature->getId());
       links_json["commands"] = String(linkBuff);
-      snprintf(linkBuff, sizeof(linkBuff), RAD_FEATURES_PATH "/%s" RAD_SUBSCRIPTIONS_PATH, feature->getName());
+      snprintf(linkBuff, sizeof(linkBuff), RAD_FEATURES_PATH "/%s" RAD_SUBSCRIPTIONS_PATH, feature->getId());
       links_json["subscriptions"] = String(linkBuff);
-      snprintf(linkBuff, sizeof(linkBuff), RAD_FEATURES_PATH "/%s" RAD_EVENTS_PATH, feature->getName());
+      snprintf(linkBuff, sizeof(linkBuff), RAD_FEATURES_PATH "/%s" RAD_EVENTS_PATH, feature->getId());
       links_json["events"] = String(linkBuff);
     }
     features.printTo(featuresString, sizeof(featuresString));
@@ -359,7 +360,7 @@ void RADConnector::handleSubscriptions(RADFeature* feature) {
         if(feature != NULL && feature != featureIt) continue;
         JsonObject& subscription_json = subscriptions.createNestedObject();
         subscription_json["id"] = subscription->getSid();
-        subscription_json["feature_name"] = featureIt->getName();
+        subscription_json["feature_id"] = featureIt->getId();
         subscription_json["event_type"] = sendEventType(subscription->getType());
         subscription_json["callback"] = subscription->getCallback();
         subscription_json["timeout"] = subscription->getTimeout();
@@ -373,9 +374,9 @@ void RADConnector::handleSubscriptions(RADFeature* feature) {
     String message = "";
     StaticJsonBuffer<255> jsonBuffer;
     JsonObject& root = jsonBuffer.parseObject(_http.arg("plain"));
-    if(feature == NULL && !root.containsKey("feature_name")) {
+    if(feature == NULL && !root.containsKey("feature_id")) {
       code = 400;
-      message = "{\"error\": \"Missing required property 'feature_name'.\"}";
+      message = "{\"error\": \"Missing required property 'feature_id'.\"}";
     } else if(!root.containsKey("event_type")) {
       code = 400;
       message = "{\"error\": \"Missing required property 'event_type'.\"}";
@@ -391,8 +392,8 @@ void RADConnector::handleSubscriptions(RADFeature* feature) {
       }
       RADFeature* featureTarget;
       if(feature == NULL) {
-        const char* feature_name = root["feature_name"];
-        featureTarget = getFeature(feature_name);
+        const char* feature_id = root["feature_id"];
+        featureTarget = getFeature(feature_id);
       } else {
         featureTarget = feature;
       }
@@ -427,17 +428,17 @@ void RADConnector::handleCommands(RADFeature* feature) {
   if(_http.method() == HTTP_POST) {
     StaticJsonBuffer<255> jsonBuffer;
     JsonObject& root = jsonBuffer.parseObject(_http.arg("plain"));
-    if(!root.containsKey("feature_name")) {
+    if(!root.containsKey("feature_id")) {
       code = 400;
-      message = "{\"error\": \"Missing required property, 'feature_name'.\"}";
+      message = "{\"error\": \"Missing required property, 'feature_id'.\"}";
     }else  if(!root.containsKey("command_type")) {
       code = 400;
       message = "{\"error\": \"Missing required property, 'command_type'.\"}";
     } else {
-      RADFeature* feature = getFeature(root["feature_name"]);
+      RADFeature* feature = getFeature(root["feature_id"]);
       if(feature == NULL) {
         code = 400;
-        message = "{\"error\": \"Invalid 'feature_name' value.\"}";
+        message = "{\"error\": \"Invalid 'feature_id' value.\"}";
       } else {
         CommandType type = getCommandType(root["command_type"]);
         switch(type) {
@@ -491,11 +492,11 @@ void RADConnector::handleEvents(RADFeature* feature) {
 }
 
 
-uint8_t RADConnector::execute(const char* name, CommandType command_type) {
+uint8_t RADConnector::execute(const char* feature_id, CommandType command_type) {
   RADFeature* feature;
   for(int i = 0; i < _features.size(); i++) {
     feature = _features.get(i);
-    if(strcmp(feature->getName(), name) == 0) {
+    if(strcmp(feature->getId(), feature_id) == 0) {
       return execute(feature, command_type);
     }
   }
@@ -507,11 +508,11 @@ uint8_t RADConnector::execute(RADFeature* feature, CommandType command_type) {
 }
 
 
-bool RADConnector::execute(const char* name, CommandType command_type, uint8_t value) {
+bool RADConnector::execute(const char* feature_id, CommandType command_type, uint8_t value) {
   RADFeature* feature;
   for(int i = 0; i < _features.size(); i++) {
     feature = _features.get(i);
-    if(strcmp(feature->getName(), name) == 0) {
+    if(strcmp(feature->getId(), feature_id) == 0) {
       return execute(feature, command_type, value);
     }
   }
@@ -523,9 +524,14 @@ bool RADConnector::execute(RADFeature* feature, CommandType command_type, uint8_
 }
 
 
-RADFeature::RADFeature(FeatureType type, const char* name) {
+RADFeature::RADFeature(FeatureType type, const char* id, const char* name) {
   _type = type;
-  _name = name;
+  _id = id;
+  if(name == NULL) {
+    _name = _id;
+  } else {
+    _name = name;
+  }
   _setCallback = NULL;
   _getCallback = NULL;
 }
@@ -595,7 +601,7 @@ void RADFeature::send(EventType event_type, uint8_t value) {
       HTTPClient http;
       http.begin(s->getCallback());
       http.addHeader("SID", s->getSid());
-      http.addHeader("RAD-NAME", _name);
+      http.addHeader("RAD-ID", _id);
       http.addHeader("Content-Type", "application/json");
       int httpCode = http.sendRequest("NOTIFY", message);
       if(httpCode > 0) {

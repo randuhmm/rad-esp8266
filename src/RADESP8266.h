@@ -139,6 +139,7 @@ class RADFeature {
   private:
 
     FeatureType _type;
+    const char* _id;
     const char* _name;
 
     SET_FP _setCallback;
@@ -148,9 +149,12 @@ class RADFeature {
 
   public:
 
-    RADFeature(FeatureType type, const char* name);
+    RADFeature(FeatureType type, const char* id, const char* name = NULL);
+
+
 
     FeatureType getType() { return _type; };
+    const char* getId() { return _id; };
     const char* getName() { return _name; };
 
     void callback(CommandType command_type, SET_FP func) { _setCallback = func; };
@@ -195,9 +199,9 @@ class RADConnector
     // void handleSubscription(LinkedList<String>& segments);
 
     // Execution Methods
-    uint8_t execute(const char* feature_name, CommandType command_type);
+    uint8_t execute(const char* feature_id, CommandType command_type);
     uint8_t execute(RADFeature* feature, CommandType command_type);
-    bool execute(const char* feature_name, CommandType command_type, uint8_t value);
+    bool execute(const char* feature_id, CommandType command_type, uint8_t value);
     bool execute(RADFeature* feature, CommandType command_type, uint8_t value);
 
   public:
@@ -213,7 +217,7 @@ class RADConnector
     bool begin(void);
     void update(void);
 
-    RADFeature* getFeature(const char* feature_name);
+    RADFeature* getFeature(const char* feature_id);
 
 };
 
