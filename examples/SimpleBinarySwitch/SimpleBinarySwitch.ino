@@ -57,7 +57,7 @@ void switch_1_toggle() {
 
 
 bool switch_1_on_set(bool on) {
-  Serial.print("switch_1_set(): ");
+  Serial.print("switch_1_on_set(): ");
   switch_1_set(on);
   return true;
 }

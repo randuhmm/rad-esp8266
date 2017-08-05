@@ -422,15 +422,17 @@ void RADConnector::handleSubscriptions(RADFeature* feature) {
 
 
 void RADConnector::handleCommands(RADFeature* feature) {
+  Serial.println("RADConnector::handleCommands");
   int code = 200;
   uint8_t value;
   bool result = false;
   RADPayload* response = NULL;
   String message = "";
   if(_http.method() == HTTP_POST) {
+    Serial.println("RADConnector::handleCommands - POST");
     StaticJsonBuffer<255> jsonBuffer;
     JsonObject& root = jsonBuffer.parseObject(_http.arg("plain"));
-    if(feature = NULL && !root.containsKey("feature_id")) {
+    if(feature == NULL && !root.containsKey("feature_id")) {
       code = 400;
       message = "{\"error\": \"Missing required property, 'feature_id'.\"}";
     }else  if(!root.containsKey("command_type")) {
@@ -451,34 +453,45 @@ void RADConnector::handleCommands(RADFeature* feature) {
         CommandType type = getCommandType(root["command_type"]);
         switch(type) {
           case Set:
+            Serial.println("RADConnector::handleCommands - case Set:");
             if(!root.containsKey("data")) {
               code = 400;
               message = "{\"error\": \"Missing required property, 'data'.\"}";
             } else {
-              JsonObject& data = root["data"].asObject();
-              if(data == JsonObject::invalid()) {
-                code = 400;
-                message = "{\"error\": \"Property 'data' must be an object.\"}";
-              } else if(!data.containsKey("value")) {
-                  code = 400;
-                  message = "{\"error\": \"Missing required property, 'value'.\"}";
-              } else {
-                value = data["value"];
-                result = execute(featureTarget->getId(), Set, value, (RADPayload*)NULL);
-                if(result) {
-                  message = "{\"result\": true}";
-                } else {
-                  code = 500;
-                }
+              if(root["data"].is<bool>()) {
+                result = execute(featureTarget->getId(), Set, (bool)root["data"].as<bool>(), (RADPayload*)NULL);
+              } else if(root["data"].is<int>()) {
+                // TODO: handle 
+              } else if(root["data"].is<char*>()) {
+                // TODO: handle base64 encoded data
               }
             }
             break;
           case Get:
             response = new RADPayload();
             result = execute(featureTarget->getId(), Get, response);
-            char buff[100];
-            snprintf(buff, sizeof(buff), "{\"value\": %d}", response->data[0]);
-            message = buff;
+            if(result && response != NULL) {
+              switch(response->type) {
+                case BoolPayload:
+                  if(response->data[0]) {
+                    message = "{\"data\": true}";
+                  } else {
+                    message = "{\"data\": false}";
+                  }
+                  break;
+                case BytePayload:
+                  char buff[100];
+                  snprintf(buff, sizeof(buff), "{\"data\": %d}", response->data[0]);
+                  message = buff;
+                  break;
+                case ByteArrayPayload:
+                  // TODO: handle get payload
+                  break;
+              }
+            } else {
+              code = 500;
+              message = "{\"error\": \"Failure.\"}";
+            }
             break;
           default:
             code = 400;
@@ -502,11 +515,14 @@ void RADConnector::handleEvents(RADFeature* feature) {
 
 
 bool RADConnector::execute(const char* feature_id, CommandType command_type, RADPayload* response) {
+  Serial.println("RADConnector::execute - empty");
   return execute(feature_id, command_type, (RADPayload*)NULL, response);
 }
 
 
 bool RADConnector::execute(const char* feature_id, CommandType command_type, bool data, RADPayload* response) {
+  Serial.print("RADConnector::execute - bool = ");
+  Serial.println(data);
   RADPayload* payload = RADConnector::BuildPayload(data);
   bool result = execute(feature_id, command_type, payload, response);
   delete payload;
@@ -515,6 +531,7 @@ bool RADConnector::execute(const char* feature_id, CommandType command_type, boo
 
 
 bool RADConnector::execute(const char* feature_id, CommandType command_type, uint8_t data, RADPayload* response) {
+  Serial.println("RADConnector::execute - byte");
   RADPayload* payload = RADConnector::BuildPayload(data);
   bool result = execute(feature_id, command_type, payload, response);
   delete payload;
@@ -523,6 +540,7 @@ bool RADConnector::execute(const char* feature_id, CommandType command_type, uin
 
 
 bool RADConnector::execute(const char* feature_id, CommandType command_type, RADPayload* payload, RADPayload* response) {
+  Serial.println("RADConnector::execute - payload");
   RADFeature* feature;
   bool result = false;
   for(int i = 0; i < _features.size(); i++) {
@@ -538,12 +556,13 @@ bool RADConnector::execute(const char* feature_id, CommandType command_type, RAD
 
 RADPayload* RADConnector::BuildPayload(bool data) {
   RADPayload* payload = new RADPayload();
+  payload->type = BoolPayload;
   payload->len = 1;
   payload->data = (uint8_t*)malloc(payload->len * sizeof(uint8_t));
   if(data) {
-    payload->data[0] = 0;
-  } else {
     payload->data[0] = 255;
+  } else {
+    payload->data[0] = 0;
   }
   return payload;
 }
@@ -551,6 +570,7 @@ RADPayload* RADConnector::BuildPayload(bool data) {
 
 RADPayload* RADConnector::BuildPayload(uint8_t data) {
   RADPayload* payload = new RADPayload();
+  payload->type = BytePayload;
   payload->len = 1;
   payload->data = (uint8_t*)malloc(payload->len * sizeof(uint8_t));
   payload->data[0] = data;
@@ -560,6 +580,7 @@ RADPayload* RADConnector::BuildPayload(uint8_t data) {
 
 RADPayload* RADConnector::BuildPayload(uint8_t* data, uint8_t len) {
   RADPayload* payload = new RADPayload();
+  payload->type = ByteArrayPayload;
   payload->len = len;
   payload->data = data;
   return payload;
@@ -583,6 +604,7 @@ RADFeature::RADFeature(FeatureType type, const char* id, const char* name) {
 
 
 bool RADFeature::execute(CommandType command_type, RADPayload* payload, RADPayload* response) {
+  Serial.println("RADFeature::execute");
   bool result = false;
   RADPayload* getResponse;
   TriggerFp trigger = NULL;
@@ -602,14 +624,16 @@ bool RADFeature::execute(CommandType command_type, RADPayload* payload, RADPaylo
       }
       break;
     case Set:
+      Serial.println("RADFeature::execute - case Set:");
       switch(_type) {
         case SwitchBinary:
           setBool = _setBoolCb;
           break;
       }
       if(setBool != NULL) {
+        Serial.println("RADFeature::execute - setBool");
         if(payload != NULL && payload->type == BoolPayload && payload->len == 1) {
-          result = setBool(payload);
+          result = setBool((bool)payload->data[0]);
         }
       } else if(setByte != NULL) {
         result = false;
@@ -627,6 +651,7 @@ bool RADFeature::execute(CommandType command_type, RADPayload* payload, RADPaylo
         getResponse = get();
         result = true;
         if(response != NULL) {
+          response->type = getResponse->type;
           response->len = getResponse->len;
           response->data = getResponse->data;
         }
