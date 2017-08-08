@@ -664,24 +664,28 @@ bool RADFeature::execute(CommandType command_type, RADPayload* payload, RADPaylo
 
 
 void RADFeature::send(EventType event_type) {
-  sendEvent(event_type, "");
+  StaticJsonBuffer<1024> json_buffer;
+  JsonObject& json_body = json_buffer.createObject();
+  json_body["event_type"] = sendEventType(event_type);
+  sendEvent(event_type, json_body);
 }
 
 
 void RADFeature::send(EventType event_type, bool data) {
-  if(data) {
-    sendEvent(event_type, "true");
-  } else {
-    sendEvent(event_type, "false");
-  }
+  StaticJsonBuffer<1024> json_buffer;
+  JsonObject& json_body = json_buffer.createObject();
+  json_body["event_type"] = sendEventType(event_type);
+  json_body["data"] = data;
+  sendEvent(event_type, json_body);
 }
 
 
 void RADFeature::send(EventType event_type, uint8_t data) {
-  char buff[32];
-  snprintf(buff, sizeof(buff), "%d", data);
-  String body = buff;
-  sendEvent(event_type, body);
+  StaticJsonBuffer<1024> json_buffer;
+  JsonObject& json_body = json_buffer.createObject();
+  json_body["event_type"] = sendEventType(event_type);
+  json_body["data"] = data;
+  sendEvent(event_type, json_body);
 }
 
 
@@ -690,8 +694,10 @@ void RADFeature::send(EventType event_type, uint8_t* data, uint8_t len) {
 }
 
 
-void RADFeature::sendEvent(EventType event_type, String body) {
+void RADFeature::sendEvent(EventType event_type, JsonObject& json_body) {
   RADSubscription* s;
+  char body[1024];
+  json_body.printTo(body, sizeof(body));
   for(int i = 0; i < _subscriptions.size(); i++) {
     s = _subscriptions.get(i);
     if(s->getType() == event_type) {
