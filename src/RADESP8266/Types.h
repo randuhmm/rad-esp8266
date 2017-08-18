@@ -1,7 +1,8 @@
 
 #pragma once
 
-#include <String.h>
+
+#include <Arduino.h>
 
 
 // Feature Types
