@@ -20,7 +20,7 @@ const char* pass = "YOUR_PASSWORD";
 RADConnector rad("MyESP");
 RADFeature switch_1(SwitchBinary, "switch_1");
 const int SWITCH_PIN = 2;
-uint8_t switch_1_state = false;
+bool switch_1_state = false;
 
 
 // State variables for momentary push button
@@ -32,7 +32,7 @@ int button_state = HIGH;
 static long start_press = 0;
 
 
-void switch_1_set(uint8_t value) {
+void switch_1_set(bool value) {
   Serial.print("switch_1_set(): ");
   if(value) {
     Serial.println("ON");
@@ -56,8 +56,15 @@ void switch_1_toggle() {
 }
 
 
-uint8_t switch_1_get(void) {
-  return switch_1_state;
+bool switch_1_on_set(bool on) {
+  Serial.print("switch_1_on_set(): ");
+  switch_1_set(on);
+  return true;
+}
+
+
+RADPayload* switch_1_on_get(void) {
+  return RADConnector::BuildPayload(switch_1_state);
 }
 
 
@@ -103,8 +110,8 @@ void setup() {
 
   // Create the devices here
   rad.add(&switch_1);
-  switch_1.callback(Set, switch_1_set);
-  switch_1.callback(Get, switch_1_get);
+  switch_1.callback(Set, switch_1_on_set);
+  switch_1.callback(Get, switch_1_on_get);
   rad.begin();
 
   // Setup the momentary push button pin

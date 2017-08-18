@@ -33,5 +33,6 @@
 *.su
 
 # Build objects
+_env/*
 docs/_build/*
 docs/_env/*

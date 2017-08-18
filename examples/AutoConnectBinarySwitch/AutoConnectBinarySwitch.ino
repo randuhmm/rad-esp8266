@@ -22,7 +22,7 @@ RADFeature switch_1(SwitchBinary, "switch_1");
 const int SWITCH_1_PIN = 2;
 const uint8_t SWITCH_ON = 255;
 const uint8_t SWITCH_OFF = 0;
-uint8_t switch_one_state = SWITCH_OFF;
+uint8_t switch_1_state = SWITCH_OFF;
 
 // State variables for momentary push button
 const int CMD_WAIT = 0;
@@ -38,16 +38,16 @@ void switch_1_set(uint8_t value) {
   Serial.println(value);
   if(value == SWITCH_ON) {
     digitalWrite(SWITCH_1_PIN, HIGH);
-    switch_one_state = SWITCH_ON;
+    switch_1_state = SWITCH_ON;
   } else {
     digitalWrite(SWITCH_1_PIN, LOW);
-    switch_one_state = SWITCH_OFF;
+    switch_1_state = SWITCH_OFF;
   }
 }
 
 
 void switch_1_toggle() {
-  if(switch_one_state == SWITCH_OFF) {
+  if(switch_1_state == SWITCH_OFF) {
     switch_1_set(SWITCH_ON);
     switch_1.send(State, SWITCH_ON);
   } else {
@@ -57,8 +57,15 @@ void switch_1_toggle() {
 }
 
 
-uint8_t switch_1_get(void) {
-  return switch_one_state;
+bool switch_1_on_set(bool on) {
+  Serial.print("switch_1_set(): ");
+  switch_1_set(on);
+  return true;
+}
+
+
+RADPayload* switch_1_on_get(void) {
+  return RADConnector::BuildPayload(switch_1_state);
 }
 
 
@@ -186,8 +193,8 @@ void setup() {
 
   // Create the devices here
   rad.add(&switch_1);
-  switch_1.callback(Set, switch_1_set);
-  switch_1.callback(Get, switch_1_get);
+  switch_1.callback(Set, switch_1_on_set);
+  switch_1.callback(Get, switch_1_on_get);
   rad.begin();
 
   // Setup button

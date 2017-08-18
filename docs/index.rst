@@ -11,7 +11,6 @@ Welcome to rad-esp8266's documentation!
    :caption: Contents:
 
    overview
-   specs
    history
 
 
