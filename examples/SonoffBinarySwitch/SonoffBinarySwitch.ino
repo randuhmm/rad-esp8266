@@ -13,15 +13,16 @@
 #include <WiFiManager.h>
 #include <WiFiUdp.h>
 
+
 // For LED status indicator
 Ticker ticker;
+const int LED_PIN = 13;
 
 // RAD variables
 RADConnector rad("MySonoff");
 RADFeature switch_1(SwitchBinary, "switch_1");
 const int SWITCH_PIN = 12;
 bool switch_1_state = false;
-
 
 // State variables for momentary push button
 const int CMD_WAIT = 0;
@@ -70,8 +71,8 @@ RADPayload* switch_1_on_get(void) {
 
 void tick() {
   // Toggle LED state
-  int state = digitalRead(BUILTIN_LED);  // get the current state of LED pin
-  digitalWrite(BUILTIN_LED, !state);     // set pin to the opposite state
+  int state = digitalRead(LED_PIN);  // get the current state of LED pin
+  digitalWrite(LED_PIN, !state);     // set pin to the opposite state
 }
 
 
@@ -157,7 +158,7 @@ void setup() {
   Serial.println("Starting...");
 
   // Setup the led pin as output
-  pinMode(BUILTIN_LED, OUTPUT);
+  pinMode(LED_PIN, OUTPUT);
   // Start ticker with 0.6 because we start in AP mode and try to connect
   ticker.attach(0.6, tick);
 
@@ -183,7 +184,7 @@ void setup() {
   Serial.println("connected...");
   ticker.detach();
   // keep LED on
-  digitalWrite(BUILTIN_LED, LOW);
+  digitalWrite(BUILTIN_LED, HIGH);
 
   // Setup OTA
   setup_ota();
