@@ -3,7 +3,7 @@
 
 RADConnector::RADConnector(const char* name) {
   _name = name;
-  _http = ESP8266WebServer(RAD_HTTP_PORT);
+  _http = new ESP8266WebServer(RAD_HTTP_PORT);
   _subscriptionCount = 0;
   _lastWrite = 0;
 }
@@ -140,11 +140,11 @@ bool RADConnector::begin(void) {
   // Serial.println(WiFi.localIP());
 
   // Add the HTTP handlers
-  _http.on(RAD_INFO_PATH, std::bind(&RADConnector::handleInfo, this));
-  _http.on(RAD_FEATURES_PATH, std::bind(&RADConnector::handleFeatures, this));
-  _http.on(RAD_SUBSCRIPTIONS_PATH, std::bind(&RADConnector::handleSubscriptions, this, (RADFeature*)NULL));
-  _http.on(RAD_COMMANDS_PATH, std::bind(&RADConnector::handleCommands, this, (RADFeature*)NULL));
-  _http.on(RAD_EVENTS_PATH, std::bind(&RADConnector::handleEvents, this, (RADFeature*)NULL));
+  _http->on(RAD_INFO_PATH, std::bind(&RADConnector::handleInfo, this));
+  _http->on(RAD_FEATURES_PATH, std::bind(&RADConnector::handleFeatures, this));
+  _http->on(RAD_SUBSCRIPTIONS_PATH, std::bind(&RADConnector::handleSubscriptions, this, (RADFeature*)NULL));
+  _http->on(RAD_COMMANDS_PATH, std::bind(&RADConnector::handleCommands, this, (RADFeature*)NULL));
+  _http->on(RAD_EVENTS_PATH, std::bind(&RADConnector::handleEvents, this, (RADFeature*)NULL));
 
   // Loop through features and add HTTP handlers
   RADFeature* _http_feature = NULL;
@@ -152,16 +152,16 @@ bool RADConnector::begin(void) {
   for(int i = 0; i < _features.size(); i++) {
     _http_feature = _features.get(i);
     snprintf(_path_buffer, sizeof(_path_buffer), RAD_FEATURES_PATH "/%s" RAD_SUBSCRIPTIONS_PATH, _http_feature->getId());
-    _http.on(_path_buffer, std::bind(&RADConnector::handleSubscriptions, this, _http_feature));
+    _http->on(_path_buffer, std::bind(&RADConnector::handleSubscriptions, this, _http_feature));
     snprintf(_path_buffer, sizeof(_path_buffer), RAD_FEATURES_PATH "/%s" RAD_COMMANDS_PATH, _http_feature->getId());
-    _http.on(_path_buffer, std::bind(&RADConnector::handleCommands, this, _http_feature));
+    _http->on(_path_buffer, std::bind(&RADConnector::handleCommands, this, _http_feature));
     snprintf(_path_buffer, sizeof(_path_buffer), RAD_FEATURES_PATH "/%s" RAD_EVENTS_PATH, _http_feature->getId());
-    _http.on(_path_buffer, std::bind(&RADConnector::handleEvents, this, _http_feature));
+    _http->on(_path_buffer, std::bind(&RADConnector::handleEvents, this, _http_feature));
   }
 
   // Prepare the SSDP configuration
-  _http.collectHeaders(HEADERS, 4);
-  _http.begin();
+  _http->collectHeaders(HEADERS, 4);
+  _http->begin();
   SSDP.setDeviceType(RAD_DEVICE_TYPE);
   SSDP.setName(_name);
   SSDP.setURL("");
@@ -179,7 +179,7 @@ bool RADConnector::begin(void) {
 
 void RADConnector::update(void) {
   // loop
-  _http.handleClient();
+  _http->handleClient();
   yield(); // Allow WiFi stack a chance to run
 
   long current = millis();
@@ -221,10 +221,10 @@ RADFeature* RADConnector::getFeature(const char* feature_id) {
 
 void RADConnector::handleInfo(void) {
   Serial.println("/");
-  if(_http.method() == HTTP_GET) {
-    _http.send(200, "application/json", _info);
+  if(_http->method() == HTTP_GET) {
+    _http->send(200, "application/json", _info);
   } else {
-    _http.send(405);
+    _http->send(405);
   }
 }
 
@@ -232,7 +232,7 @@ void RADConnector::handleInfo(void) {
 void RADConnector::handleFeatures() {
   Serial.println("RADConnector::handleFeatures");
   int code = 200;
-  if(_http.method() == HTTP_GET) {
+  if(_http->method() == HTTP_GET) {
     // Prepare the JSON response
     StaticJsonBuffer<1024> featuresBuffer;
     char featuresString[1024];
@@ -257,9 +257,9 @@ void RADConnector::handleFeatures() {
       links_json["events"] = String(linkBuff);
     }
     features.printTo(featuresString, sizeof(featuresString));
-    _http.send(code, "application/json", featuresString);
+    _http->send(code, "application/json", featuresString);
   } else {
-    _http.send(405);
+    _http->send(405);
   }
 }
 
@@ -268,7 +268,7 @@ void RADConnector::handleSubscriptions(RADFeature* feature) {
   Serial.println("RADConnector::handleSubscriptions");
   int code = 200;
   long current = millis();
-  if(_http.method() == HTTP_GET) {
+  if(_http->method() == HTTP_GET) {
     // Prepare the JSON response
     StaticJsonBuffer<1024> subscriptionsBuffer;
     char subscriptionsString[1024];
@@ -290,12 +290,12 @@ void RADConnector::handleSubscriptions(RADFeature* feature) {
       }
     }
     subscriptions.printTo(subscriptionsString, sizeof(subscriptionsString));
-    _http.send(code, "application/json", subscriptionsString);
+    _http->send(code, "application/json", subscriptionsString);
   // POST Method
-  } else if(_http.method() == HTTP_POST) {
+  } else if(_http->method() == HTTP_POST) {
     String message = "";
     StaticJsonBuffer<255> jsonBuffer;
-    JsonObject& root = jsonBuffer.parseObject(_http.arg("plain"));
+    JsonObject& root = jsonBuffer.parseObject(_http->arg("plain"));
     if(feature == NULL && !root.containsKey("feature_id")) {
       code = 400;
       message = "{\"error\": \"Missing required property 'feature_id'.\"}";
@@ -332,13 +332,13 @@ void RADConnector::handleSubscriptions(RADFeature* feature) {
         RADSubscription* subscription = subscribe(featureTarget, type, callback, timeout);
         char sid[100];
         snprintf(sid, sizeof(sid), "uuid:%s", subscription->getSid());
-        _http.sendHeader("SID", sid);
-        _http.sendHeader(HEADER_TIMEOUT, String(timeout));
+        _http->sendHeader("SID", sid);
+        _http->sendHeader(HEADER_TIMEOUT, String(timeout));
       }
     }
-    _http.send(code, "application/json", message);
+    _http->send(code, "application/json", message);
   } else {
-    _http.send(405);
+    _http->send(405);
   }
 }
 
@@ -350,10 +350,11 @@ void RADConnector::handleCommands(RADFeature* feature) {
   bool result = false;
   RADPayload* response = NULL;
   String message = "";
-  if(_http.method() == HTTP_POST) {
+  if(_http->method() == HTTP_POST) {
     Serial.println("RADConnector::handleCommands - POST");
     StaticJsonBuffer<255> jsonBuffer;
-    JsonObject& root = jsonBuffer.parseObject(_http.arg("plain"));
+    JsonObject& root = jsonBuffer.parseObject(_http->arg("plain"));
+    Serial.println(_http->arg("plain"));
     if(feature == NULL && !root.containsKey("feature_id")) {
       code = 400;
       message = "{\"error\": \"Missing required property, 'feature_id'.\"}";
@@ -383,7 +384,7 @@ void RADConnector::handleCommands(RADFeature* feature) {
               if(root["data"].is<bool>()) {
                 result = execute(featureTarget->getId(), Set, (bool)root["data"].as<bool>(), (RADPayload*)NULL);
               } else if(root["data"].is<int>()) {
-                // TODO: handle 
+                result = execute(featureTarget->getId(), Set, (uint8_t)root["data"].as<int>(), (RADPayload*)NULL);
               } else if(root["data"].is<char*>()) {
                 // TODO: handle base64 encoded data
               }
@@ -422,16 +423,16 @@ void RADConnector::handleCommands(RADFeature* feature) {
         }
       }
     }
-    _http.send(code, "application/json", message);
+    _http->send(code, "application/json", message);
   } else {
-    _http.send(405);
+    _http->send(405);
   }
 }
 
 
 void RADConnector::handleEvents(RADFeature* feature) {
   Serial.println("RADConnector::handleEvents");
-  _http.send(200, "application/json", "RADConnector::handleEvents");
+  _http->send(200, "application/json", "RADConnector::handleEvents");
   return;
 }
 

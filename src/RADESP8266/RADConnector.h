@@ -41,7 +41,7 @@ class RADConnector
     LinkedList<RADSubscription*> _subscriptions;
     char _uuid[SSDP_UUID_SIZE];
     String _info;
-    ESP8266WebServer _http;
+    ESP8266WebServer* _http;
 
 
     uint8_t _subscriptionCount;

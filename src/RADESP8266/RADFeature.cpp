@@ -44,6 +44,9 @@ bool RADFeature::execute(CommandType command_type, RADPayload* payload, RADPaylo
         case SwitchBinary:
           setBool = _setBoolCb;
           break;
+        case SwitchMultiLevel:
+          setByte = _setByteCb;
+          break;
       }
       if(setBool != NULL) {
         Serial.println("RADFeature::execute - setBool");
@@ -51,7 +54,10 @@ bool RADFeature::execute(CommandType command_type, RADPayload* payload, RADPaylo
           result = setBool((bool)payload->data[0]);
         }
       } else if(setByte != NULL) {
-        result = false;
+        Serial.println("RADFeature::execute - setByte");
+        if(payload != NULL && payload->type == BytePayload && payload->len == 1) {
+          result = setByte((int8_t)payload->data[0]);
+        }
       } else if(setByteArray != NULL) {
         result = false;
       }
@@ -59,6 +65,7 @@ bool RADFeature::execute(CommandType command_type, RADPayload* payload, RADPaylo
     case Get:
       switch(_type) {
         case SwitchBinary:
+        case SwitchMultiLevel:
           get = _getCb;
           break;
       }
