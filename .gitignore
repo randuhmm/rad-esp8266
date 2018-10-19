@@ -36,3 +36,4 @@
 _env/*
 docs/_build/*
 docs/_env/*
+.vscode/*

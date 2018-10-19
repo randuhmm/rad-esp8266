@@ -7,6 +7,7 @@
 #include <ESP8266WebServer.h>
 #include <FS.h>
 #include <LinkedList.h>
+#include <Wire.h>
 #include "Types.h"
 #include "RADFeature.h"
 #include "RADSubscription.h"
@@ -30,6 +31,11 @@ static const char* _info_template =
   "\r\n";
 
 
+class RADConfig
+{
+
+};
+
 class RADConnector
 {
 
@@ -42,7 +48,6 @@ class RADConnector
     char _uuid[SSDP_UUID_SIZE];
     String _info;
     ESP8266WebServer* _http;
-
 
     uint8_t _subscriptionCount;
     long _lastWrite;
@@ -64,11 +69,18 @@ class RADConnector
     //bool execute(const char* feature_id, CommandType command_type, uint8_t* data, uint8_t len, RADPayload* response);
     bool execute(const char* feature_id, CommandType command_type, RADPayload* payload, RADPayload* response);
 
+    // Wire state
+    bool _wireEnabled;
+    int _wireSDA;
+    int _wireSCL;
+
   public:
 
-    RADConnector(const char* name);
+    RADConnector(const char* name, RADConfig* config = NULL);
 
     void add(RADFeature* feature);
+
+    void enableWire(int sda, int scl);
 
     RADSubscription* subscribe(RADFeature* feature, EventType event_type,
                                const char* callback, int timeout=RAD_MIN_TIMEOUT);

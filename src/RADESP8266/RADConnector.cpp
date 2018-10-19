@@ -1,11 +1,13 @@
 
 #include "RADConnector.h"
 
-RADConnector::RADConnector(const char* name) {
+
+RADConnector::RADConnector(const char* name, RADConfig* config) {
   _name = name;
   _http = new ESP8266WebServer(RAD_HTTP_PORT);
   _subscriptionCount = 0;
   _lastWrite = 0;
+  _wireEnabled = false;
 }
 
 
@@ -19,6 +21,15 @@ static const char* HEADERS[] = {
 
 void RADConnector::add(RADFeature* feature) {
   _features.add(feature);
+}
+
+
+void RADConnector::enableWire(int sda, int scl) {
+  if(!_started) {
+    _wireEnabled = true;
+    _wireSDA = sda;
+    _wireSCL = scl;
+  }
 }
 
 
@@ -174,6 +185,12 @@ bool RADConnector::begin(void) {
   SSDP.setManufacturerURL(RAD_INFO_URL);
   SSDP.setHTTPPort(RAD_HTTP_PORT);
   SSDP.begin();
+
+  // Setup the Wire interface if enabled
+  if(_wireEnabled) {
+    Wire.begin(_wireSDA, _wireSCL);
+  }
+
 }
 
 
@@ -358,7 +375,7 @@ void RADConnector::handleCommands(RADFeature* feature) {
     if(feature == NULL && !root.containsKey("feature_id")) {
       code = 400;
       message = "{\"error\": \"Missing required property, 'feature_id'.\"}";
-    }else  if(!root.containsKey("command_type")) {
+    } else  if(!root.containsKey("command_type")) {
       code = 400;
       message = "{\"error\": \"Missing required property, 'command_type'.\"}";
     } else {

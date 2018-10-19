@@ -20,5 +20,6 @@
 #include "RADESP8266/RADConnector.h"
 #include "RADESP8266/RADSubscription.h"
 #include "RADESP8266/RADFeature.h"
+// #include "RADESP8266/wire/RADWire.h"
 
 #endif // __RADESP8266_H__

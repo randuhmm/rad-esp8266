@@ -7,28 +7,28 @@
 
 // Feature Types
 enum FeatureType {
-    NullFeature      = 0,
-    SwitchBinary     = 1,
-    SensorBinary     = 2,
-    SwitchMultiLevel = 3,
-    SensorMultiLevel = 4,
-    TriggerFeature   = 5
+  NullFeature      = 0,
+  SwitchBinary     = 1,
+  SensorBinary     = 2,
+  SwitchMultiLevel = 3,
+  SensorMultiLevel = 4,
+  TriggerFeature   = 5
 };
 
 // Command Types
 enum CommandType {
-    NullCommand  = 0,
-    Get          = 1,
-    Set          = 2,
-    Trigger      = 3
+  NullCommand  = 0,
+  Get          = 1,
+  Set          = 2,
+  Trigger      = 3
 };
 
 // Event Types
 enum EventType {
-    NullEvent  = 0,
-    All        = 1,
-    Start      = 2,
-    State      = 3
+  NullEvent  = 0,
+  All        = 1,
+  Start      = 2,
+  State      = 3
 };
 
 // Payload Types
