@@ -17,8 +17,8 @@ install:
 # install lib arduino json not working in 1.6.5
 #  - arduino --install-library "ArduinoJson"
   - git clone --branch v5.13.3 https://github.com/bblanchon/ArduinoJson /usr/local/share/arduino/libraries/ArduinoJson
-  - git clone --branch v1.2.3 https://github.com/ivanseidel/LinkedList /usr/local/share/arduino/libraries/LinkedList
-  - git clone --branch v0.14 https://github.com/tzapu/WiFiManager /usr/local/share/arduino/libraries/WiFiManager
+  - git clone --branch 1.2.3 https://github.com/ivanseidel/LinkedList /usr/local/share/arduino/libraries/LinkedList
+  - git clone --branch 0.14 https://github.com/tzapu/WiFiManager /usr/local/share/arduino/libraries/WiFiManager
   - arduino --install-boards esp8266:esp8266
   - arduino --board esp8266:esp8266:generic --save-prefs
   - arduino --pref "compiler.warning_level=all" --save-prefs
