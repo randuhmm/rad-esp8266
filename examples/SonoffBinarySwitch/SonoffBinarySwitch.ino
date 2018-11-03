@@ -19,8 +19,8 @@ Ticker ticker;
 const int LED_PIN = 13;
 
 // RAD variables
-RADConnector rad("MySonoff");
-RADFeature switch_1(SwitchBinary, "switch_1");
+RAD::ESP8266Server rad("MySonoff");
+RAD::Feature switch_1(RAD::SwitchBinary, "switch_1");
 const int SWITCH_PIN = 12;
 bool switch_1_state = false;
 
@@ -49,10 +49,10 @@ void switch_1_set(bool value) {
 void switch_1_toggle() {
   if(switch_1_state) {
     switch_1_set(false);
-    switch_1.send(State, false);
+    switch_1.send(RAD::State, false);
   } else {
     switch_1_set(true);
-    switch_1.send(State, true);
+    switch_1.send(RAD::State, true);
   }
 }
 
@@ -64,8 +64,8 @@ bool switch_1_on_set(bool on) {
 }
 
 
-RADPayload* switch_1_on_get(void) {
-  return RADConnector::BuildPayload(switch_1_state);
+RAD::Payload* switch_1_on_get(void) {
+  return RAD::ESP8266Server::BuildPayload(switch_1_state);
 }
 
 
@@ -196,8 +196,8 @@ void setup() {
 
   // Create the devices here
   rad.add(&switch_1);
-  switch_1.callback(Set, switch_1_on_set);
-  switch_1.callback(Get, switch_1_on_get);
+  switch_1.callback(RAD::Set, switch_1_on_set);
+  switch_1.callback(RAD::Get, switch_1_on_get);
   rad.begin();
 
   // Setup the momentary push button pin

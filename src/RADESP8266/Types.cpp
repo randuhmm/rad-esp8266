@@ -1,7 +1,9 @@
 
 #include "Types.h"
 
-FeatureType getFeatureType(const char* s) {
+using namespace RAD;
+
+FeatureType RAD::getFeatureType(const char* s) {
   FeatureType ft = NullFeature;
   if(strcmp(s, "SwitchBinary") == 0) {
     ft = SwitchBinary;
@@ -16,7 +18,7 @@ FeatureType getFeatureType(const char* s) {
 }
 
 
-const char* sendFeatureType(FeatureType ft) {
+const char* RAD::sendFeatureType(FeatureType ft) {
   const char* s = "NullFeature";
   if(ft == SwitchBinary) {
     s = "SwitchBinary";
@@ -31,7 +33,7 @@ const char* sendFeatureType(FeatureType ft) {
 }
 
 
-CommandType getCommandType(const char* s) {
+CommandType RAD::getCommandType(const char* s) {
   CommandType ct = NullCommand;
   if(strcmp(s, "Get") == 0) {
     ct = Get;
@@ -42,7 +44,7 @@ CommandType getCommandType(const char* s) {
 }
 
 
-const char* sendCommandType(CommandType ct) {
+const char* RAD::sendCommandType(CommandType ct) {
   const char* s = "NullCommand";
   if(ct == Get) {
     s = "Get";
@@ -53,7 +55,7 @@ const char* sendCommandType(CommandType ct) {
 }
 
 
-EventType getEventType(const char* s) {
+EventType RAD::getEventType(const char* s) {
   EventType et = NullEvent;
   if(strcmp(s, "All") == 0) {
     et = All;
@@ -66,7 +68,7 @@ EventType getEventType(const char* s) {
 }
 
 
-const char* sendEventType(EventType et) {
+const char* RAD::sendEventType(EventType et) {
   const char* s = "NullEvent";
   if(et == All) {
     s = "All";

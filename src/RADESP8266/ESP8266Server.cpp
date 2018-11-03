@@ -1,11 +1,14 @@
 
-#include "RADConnector.h"
+#include "ESP8266Server.h"
 
-RADConnector::RADConnector(const char* name) {
+using namespace RAD;
+
+ESP8266Server::ESP8266Server(const char* name, Config* config) {
   _name = name;
   _http = new ESP8266WebServer(RAD_HTTP_PORT);
   _subscriptionCount = 0;
   _lastWrite = 0;
+  _wireEnabled = false;
 }
 
 
@@ -17,15 +20,24 @@ static const char* HEADERS[] = {
 };
 
 
-void RADConnector::add(RADFeature* feature) {
+void ESP8266Server::add(Feature* feature) {
   _features.add(feature);
 }
 
 
-RADSubscription* RADConnector::subscribe(RADFeature* feature, EventType type,
+void ESP8266Server::enableWire(int sda, int scl) {
+  if(!_started) {
+    _wireEnabled = true;
+    _wireSDA = sda;
+    _wireSCL = scl;
+  }
+}
+
+
+Subscription* ESP8266Server::subscribe(Feature* feature, EventType type,
                                     const char* callback, int timeout) {
-  RADSubscription* s;
-  RADFeature* f;
+  Subscription* s;
+  Feature* f;
   for(int i = 0; i < _subscriptions.size(); i++) {
     s = _subscriptions.get(i);
     f = s->getFeature();
@@ -43,7 +55,7 @@ RADSubscription* RADConnector::subscribe(RADFeature* feature, EventType type,
   (uint16_t) ((chipId >>  8) & 0xff),
   (uint16_t)   chipId        & 0xff ,
               _subscriptionCount);
-  s = new RADSubscription(feature, sid, type, callback, timeout);
+  s = new Subscription(feature, sid, type, callback, timeout);
   _subscriptions.add(s);
   feature->add(s);
   _subscriptionsChanged = true;
@@ -51,18 +63,18 @@ RADSubscription* RADConnector::subscribe(RADFeature* feature, EventType type,
 }
 
 
-void RADConnector::unsubscribe(int index) {
-  RADSubscription* s;
+void ESP8266Server::unsubscribe(int index) {
+  Subscription* s;
   s = _subscriptions.get(index);
   _subscriptions.remove(index);
-  RADFeature* feature = s->getFeature();
+  Feature* feature = s->getFeature();
   feature->remove(s);
   delete s;
   _subscriptionsChanged = true;
 }
 
 
-bool RADConnector::begin(void) {
+bool ESP8266Server::begin(void) {
 
   // Start the SPIFFS object
   SPIFFS.begin();
@@ -81,8 +93,8 @@ bool RADConnector::begin(void) {
       }
       if(subscription_json.containsKey("subscriptions")) {
         JsonArray& subscription_array = subscription_json["subscriptions"];
-        RADFeature* feature;
-        RADSubscription* s;
+        Feature* feature;
+        Subscription* s;
         for (auto value : subscription_array) {
           JsonObject& subscription = value.as<JsonObject&>();
           // TODO: print out the data for testing
@@ -106,7 +118,7 @@ bool RADConnector::begin(void) {
             if(feature == NULL) {
               continue;
             }
-            s = new RADSubscription(feature, id, type, callback, timeout);
+            s = new Subscription(feature, id, type, callback, timeout);
             _subscriptions.add(s);
             feature->add(s);
           }
@@ -140,23 +152,23 @@ bool RADConnector::begin(void) {
   // Serial.println(WiFi.localIP());
 
   // Add the HTTP handlers
-  _http->on(RAD_INFO_PATH, std::bind(&RADConnector::handleInfo, this));
-  _http->on(RAD_FEATURES_PATH, std::bind(&RADConnector::handleFeatures, this));
-  _http->on(RAD_SUBSCRIPTIONS_PATH, std::bind(&RADConnector::handleSubscriptions, this, (RADFeature*)NULL));
-  _http->on(RAD_COMMANDS_PATH, std::bind(&RADConnector::handleCommands, this, (RADFeature*)NULL));
-  _http->on(RAD_EVENTS_PATH, std::bind(&RADConnector::handleEvents, this, (RADFeature*)NULL));
+  _http->on(RAD_INFO_PATH, std::bind(&ESP8266Server::handleInfo, this));
+  _http->on(RAD_FEATURES_PATH, std::bind(&ESP8266Server::handleFeatures, this));
+  _http->on(RAD_SUBSCRIPTIONS_PATH, std::bind(&ESP8266Server::handleSubscriptions, this, (Feature*)NULL));
+  _http->on(RAD_COMMANDS_PATH, std::bind(&ESP8266Server::handleCommands, this, (Feature*)NULL));
+  _http->on(RAD_EVENTS_PATH, std::bind(&ESP8266Server::handleEvents, this, (Feature*)NULL));
 
   // Loop through features and add HTTP handlers
-  RADFeature* _http_feature = NULL;
+  Feature* _http_feature = NULL;
   char _path_buffer[255];
   for(int i = 0; i < _features.size(); i++) {
     _http_feature = _features.get(i);
     snprintf(_path_buffer, sizeof(_path_buffer), RAD_FEATURES_PATH "/%s" RAD_SUBSCRIPTIONS_PATH, _http_feature->getId());
-    _http->on(_path_buffer, std::bind(&RADConnector::handleSubscriptions, this, _http_feature));
+    _http->on(_path_buffer, std::bind(&ESP8266Server::handleSubscriptions, this, _http_feature));
     snprintf(_path_buffer, sizeof(_path_buffer), RAD_FEATURES_PATH "/%s" RAD_COMMANDS_PATH, _http_feature->getId());
-    _http->on(_path_buffer, std::bind(&RADConnector::handleCommands, this, _http_feature));
+    _http->on(_path_buffer, std::bind(&ESP8266Server::handleCommands, this, _http_feature));
     snprintf(_path_buffer, sizeof(_path_buffer), RAD_FEATURES_PATH "/%s" RAD_EVENTS_PATH, _http_feature->getId());
-    _http->on(_path_buffer, std::bind(&RADConnector::handleEvents, this, _http_feature));
+    _http->on(_path_buffer, std::bind(&ESP8266Server::handleEvents, this, _http_feature));
   }
 
   // Prepare the SSDP configuration
@@ -174,17 +186,23 @@ bool RADConnector::begin(void) {
   SSDP.setManufacturerURL(RAD_INFO_URL);
   SSDP.setHTTPPort(RAD_HTTP_PORT);
   SSDP.begin();
+
+  // Setup the Wire interface if enabled
+  if(_wireEnabled) {
+    Wire.begin(_wireSDA, _wireSCL);
+  }
+
 }
 
 
-void RADConnector::update(void) {
+void ESP8266Server::update(void) {
   // loop
   _http->handleClient();
   yield(); // Allow WiFi stack a chance to run
 
   long current = millis();
   // Check for expired subscriptions
-  RADSubscription* s;
+  Subscription* s;
   for(int i = 0; i < _subscriptions.size(); i++) {
     s = _subscriptions.get(i);
     if(!s->isActive(current)) {
@@ -207,8 +225,8 @@ void RADConnector::update(void) {
 }
 
 
-RADFeature* RADConnector::getFeature(const char* feature_id) {
-  RADFeature* feature = NULL;
+Feature* ESP8266Server::getFeature(const char* feature_id) {
+  Feature* feature = NULL;
   for(int i = 0; i < _features.size(); i++) {
     if(strcmp(_features.get(i)->getId(), feature_id) == 0) {
       feature = _features.get(i);
@@ -219,7 +237,7 @@ RADFeature* RADConnector::getFeature(const char* feature_id) {
 }
 
 
-void RADConnector::handleInfo(void) {
+void ESP8266Server::handleInfo(void) {
   Serial.println("/");
   if(_http->method() == HTTP_GET) {
     _http->send(200, "application/json", _info);
@@ -229,8 +247,8 @@ void RADConnector::handleInfo(void) {
 }
 
 
-void RADConnector::handleFeatures() {
-  Serial.println("RADConnector::handleFeatures");
+void ESP8266Server::handleFeatures() {
+  Serial.println("ESP8266Server::handleFeatures");
   int code = 200;
   if(_http->method() == HTTP_GET) {
     // Prepare the JSON response
@@ -238,7 +256,7 @@ void RADConnector::handleFeatures() {
     char featuresString[1024];
     char linkBuff[255];
     JsonArray& features = featuresBuffer.createArray();
-    RADFeature* feature;
+    Feature* feature;
     for(int i = 0; i < _features.size(); i++) {
       feature = _features.get(i);
       JsonObject& feature_json = features.createNestedObject();
@@ -264,8 +282,8 @@ void RADConnector::handleFeatures() {
 }
 
 
-void RADConnector::handleSubscriptions(RADFeature* feature) {
-  Serial.println("RADConnector::handleSubscriptions");
+void ESP8266Server::handleSubscriptions(Feature* feature) {
+  Serial.println("ESP8266Server::handleSubscriptions");
   int code = 200;
   long current = millis();
   if(_http->method() == HTTP_GET) {
@@ -273,8 +291,8 @@ void RADConnector::handleSubscriptions(RADFeature* feature) {
     StaticJsonBuffer<1024> subscriptionsBuffer;
     char subscriptionsString[1024];
     JsonArray& subscriptions = subscriptionsBuffer.createArray();
-    RADFeature* featureIt;
-    RADSubscription* subscription;
+    Feature* featureIt;
+    Subscription* subscription;
     for(int i = 0; i < _subscriptions.size(); i++) {
       subscription = _subscriptions.get(i);
       if(subscription->isActive(current)) {
@@ -312,7 +330,7 @@ void RADConnector::handleSubscriptions(RADFeature* feature) {
       if(root.containsKey("timeout")) {
         timeout = root["timeout"];
       }
-      RADFeature* featureTarget;
+      Feature* featureTarget;
       if(feature == NULL) {
         const char* feature_id = root["feature_id"];
         featureTarget = getFeature(feature_id);
@@ -329,7 +347,7 @@ void RADConnector::handleSubscriptions(RADFeature* feature) {
         code = 400;
         message = "{\"error\": \"The timeout property can not be less than 600 seconds.\"}";
       } else {
-        RADSubscription* subscription = subscribe(featureTarget, type, callback, timeout);
+        Subscription* subscription = subscribe(featureTarget, type, callback, timeout);
         char sid[100];
         snprintf(sid, sizeof(sid), "uuid:%s", subscription->getSid());
         _http->sendHeader("SID", sid);
@@ -343,26 +361,26 @@ void RADConnector::handleSubscriptions(RADFeature* feature) {
 }
 
 
-void RADConnector::handleCommands(RADFeature* feature) {
-  Serial.println("RADConnector::handleCommands");
+void ESP8266Server::handleCommands(Feature* feature) {
+  Serial.println("ESP8266Server::handleCommands");
   int code = 200;
   uint8_t value;
   bool result = false;
-  RADPayload* response = NULL;
+  Payload* response = NULL;
   String message = "";
   if(_http->method() == HTTP_POST) {
-    Serial.println("RADConnector::handleCommands - POST");
+    Serial.println("ESP8266Server::handleCommands - POST");
     StaticJsonBuffer<255> jsonBuffer;
     JsonObject& root = jsonBuffer.parseObject(_http->arg("plain"));
     Serial.println(_http->arg("plain"));
     if(feature == NULL && !root.containsKey("feature_id")) {
       code = 400;
       message = "{\"error\": \"Missing required property, 'feature_id'.\"}";
-    }else  if(!root.containsKey("command_type")) {
+    } else  if(!root.containsKey("command_type")) {
       code = 400;
       message = "{\"error\": \"Missing required property, 'command_type'.\"}";
     } else {
-      RADFeature* featureTarget;
+      Feature* featureTarget;
       if(feature == NULL) {
         const char* feature_id = root["feature_id"];
         featureTarget = getFeature(feature_id);
@@ -376,22 +394,22 @@ void RADConnector::handleCommands(RADFeature* feature) {
         CommandType type = getCommandType(root["command_type"]);
         switch(type) {
           case Set:
-            Serial.println("RADConnector::handleCommands - case Set:");
+            Serial.println("ESP8266Server::handleCommands - case Set:");
             if(!root.containsKey("data")) {
               code = 400;
               message = "{\"error\": \"Missing required property, 'data'.\"}";
             } else {
               if(root["data"].is<bool>()) {
-                result = execute(featureTarget->getId(), Set, (bool)root["data"].as<bool>(), (RADPayload*)NULL);
+                result = execute(featureTarget->getId(), Set, (bool)root["data"].as<bool>(), (Payload*)NULL);
               } else if(root["data"].is<int>()) {
-                result = execute(featureTarget->getId(), Set, (uint8_t)root["data"].as<int>(), (RADPayload*)NULL);
+                result = execute(featureTarget->getId(), Set, (uint8_t)root["data"].as<int>(), (Payload*)NULL);
               } else if(root["data"].is<char*>()) {
                 // TODO: handle base64 encoded data
               }
             }
             break;
           case Get:
-            response = new RADPayload();
+            response = new Payload();
             result = execute(featureTarget->getId(), Get, response);
             if(result && response != NULL) {
               switch(response->type) {
@@ -430,41 +448,41 @@ void RADConnector::handleCommands(RADFeature* feature) {
 }
 
 
-void RADConnector::handleEvents(RADFeature* feature) {
-  Serial.println("RADConnector::handleEvents");
-  _http->send(200, "application/json", "RADConnector::handleEvents");
+void ESP8266Server::handleEvents(Feature* feature) {
+  Serial.println("ESP8266Server::handleEvents");
+  _http->send(200, "application/json", "ESP8266Server::handleEvents");
   return;
 }
 
 
-bool RADConnector::execute(const char* feature_id, CommandType command_type, RADPayload* response) {
-  Serial.println("RADConnector::execute - empty");
-  return execute(feature_id, command_type, (RADPayload*)NULL, response);
+bool ESP8266Server::execute(const char* feature_id, CommandType command_type, Payload* response) {
+  Serial.println("ESP8266Server::execute - empty");
+  return execute(feature_id, command_type, (Payload*)NULL, response);
 }
 
 
-bool RADConnector::execute(const char* feature_id, CommandType command_type, bool data, RADPayload* response) {
-  Serial.print("RADConnector::execute - bool = ");
+bool ESP8266Server::execute(const char* feature_id, CommandType command_type, bool data, Payload* response) {
+  Serial.print("ESP8266Server::execute - bool = ");
   Serial.println(data);
-  RADPayload* payload = RADConnector::BuildPayload(data);
+  Payload* payload = ESP8266Server::BuildPayload(data);
   bool result = execute(feature_id, command_type, payload, response);
   delete payload;
   return result;
 }
 
 
-bool RADConnector::execute(const char* feature_id, CommandType command_type, uint8_t data, RADPayload* response) {
-  Serial.println("RADConnector::execute - byte");
-  RADPayload* payload = RADConnector::BuildPayload(data);
+bool ESP8266Server::execute(const char* feature_id, CommandType command_type, uint8_t data, Payload* response) {
+  Serial.println("ESP8266Server::execute - byte");
+  Payload* payload = ESP8266Server::BuildPayload(data);
   bool result = execute(feature_id, command_type, payload, response);
   delete payload;
   return result;
 }
 
 
-bool RADConnector::execute(const char* feature_id, CommandType command_type, RADPayload* payload, RADPayload* response) {
-  Serial.println("RADConnector::execute - payload");
-  RADFeature* feature;
+bool ESP8266Server::execute(const char* feature_id, CommandType command_type, Payload* payload, Payload* response) {
+  Serial.println("ESP8266Server::execute - payload");
+  Feature* feature;
   bool result = false;
   for(int i = 0; i < _features.size(); i++) {
     feature = _features.get(i);
@@ -477,8 +495,8 @@ bool RADConnector::execute(const char* feature_id, CommandType command_type, RAD
 }
 
 
-RADPayload* RADConnector::BuildPayload(bool data) {
-  RADPayload* payload = new RADPayload();
+Payload* ESP8266Server::BuildPayload(bool data) {
+  Payload* payload = new Payload();
   payload->type = BoolPayload;
   payload->len = 1;
   payload->data = (uint8_t*)malloc(payload->len * sizeof(uint8_t));
@@ -491,8 +509,8 @@ RADPayload* RADConnector::BuildPayload(bool data) {
 }
 
 
-RADPayload* RADConnector::BuildPayload(uint8_t data) {
-  RADPayload* payload = new RADPayload();
+Payload* ESP8266Server::BuildPayload(uint8_t data) {
+  Payload* payload = new Payload();
   payload->type = BytePayload;
   payload->len = 1;
   payload->data = (uint8_t*)malloc(payload->len * sizeof(uint8_t));
@@ -501,8 +519,8 @@ RADPayload* RADConnector::BuildPayload(uint8_t data) {
 }
 
 
-RADPayload* RADConnector::BuildPayload(uint8_t* data, uint8_t len) {
-  RADPayload* payload = new RADPayload();
+Payload* ESP8266Server::BuildPayload(uint8_t* data, uint8_t len) {
+  Payload* payload = new Payload();
   payload->type = ByteArrayPayload;
   payload->len = len;
   payload->data = data;

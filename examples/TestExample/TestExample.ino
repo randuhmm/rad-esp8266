@@ -17,8 +17,8 @@
 Ticker ticker;
 
 // RAD variables
-RADConnector rad("MyESP");
-RADFeature switch_1(SwitchBinary, "switch_1");
+RAD::ESP8266Server rad("MyESP");
+RAD::Feature switch_1(RAD::SwitchBinary, "switch_1");
 const int SWITCH_1_PIN = 2;
 const uint8_t SWITCH_ON = 255;
 const uint8_t SWITCH_OFF = 0;
@@ -49,10 +49,10 @@ void switch_1_set(uint8_t value) {
 void switch_1_toggle() {
   if(switch_1_state == SWITCH_OFF) {
     switch_1_set(SWITCH_ON);
-    switch_1.send(State, SWITCH_ON);
+    switch_1.send(RAD::State, SWITCH_ON);
   } else {
     switch_1_set(SWITCH_OFF);
-    switch_1.send(State, SWITCH_OFF);
+    switch_1.send(RAD::State, SWITCH_OFF);
   }
 }
 
@@ -64,8 +64,8 @@ bool switch_1_on_set(bool on) {
 }
 
 
-RADPayload* switch_1_on_get(void) {
-  return RADConnector::BuildPayload(switch_1_state);
+RAD::Payload* switch_1_on_get(void) {
+  return RAD::ESP8266Server::BuildPayload(switch_1_state);
 }
 
 
@@ -193,8 +193,8 @@ void setup() {
 
   // Create the devices here
   rad.add(&switch_1);
-  switch_1.callback(Set, switch_1_on_set);
-  switch_1.callback(Get, switch_1_on_get);
+  switch_1.callback(RAD::Set, switch_1_on_set);
+  switch_1.callback(RAD::Get, switch_1_on_get);
   rad.begin();
 
   // Setup button

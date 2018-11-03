@@ -17,8 +17,8 @@
 
 #include "RADESP8266/Defines.h"
 #include "RADESP8266/Types.h"
-#include "RADESP8266/RADConnector.h"
-#include "RADESP8266/RADSubscription.h"
-#include "RADESP8266/RADFeature.h"
+#include "RADESP8266/ESP8266Server.h"
+#include "RADESP8266/Subscription.h"
+#include "RADESP8266/Feature.h"
 
 #endif // __RADESP8266_H__

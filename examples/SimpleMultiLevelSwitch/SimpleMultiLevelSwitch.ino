@@ -12,16 +12,16 @@
 
 
 // WiFi Config
-const char* ssid = "YOUR_SSID";
-const char* pass = "YOUR_PASSWORD";
+const char* WIFI_SSID = "YOUR_SSID";
+const char* WIFI_PASS = "YOUR_PASSWORD";
 
-
-// RAD variables
-RAD::ESP8266Server rad("MyESP");
-RAD::Feature switch_1(RAD::SwitchBinary, "switch_1");
+// RAD Config
+const char* RAD_NAME = "MyESP";
+const char* SWITCH_1_ID = "switch_1";
 const int SWITCH_PIN = 2;
-bool switch_1_state = false;
 
+// Switch State
+uint8_t switch_1_state = 0;
 
 // State variables for momentary push button
 const int CMD_WAIT = 0;
@@ -31,8 +31,12 @@ int cmd = CMD_WAIT;
 int button_state = HIGH;
 static long start_press = 0;
 
+// RAD Server and Features
+RAD::ESP8266Server server = RAD::ESP8266Server(RAD_NAME);
+RAD::Feature switch_1(RAD::SwitchMultiLevel, SWITCH_1_ID);
 
-void switch_1_set(bool value) {
+
+void switch_1_set(uint8_t value) {
   Serial.print("switch_1_set(): ");
   if(value) {
     Serial.println("ON");
@@ -47,18 +51,18 @@ void switch_1_set(bool value) {
 
 void switch_1_toggle() {
   if(switch_1_state) {
-    switch_1_set(false);
-    switch_1.send(RAD::State, false);
+    switch_1_set(0);
+    switch_1.send(RAD::State, (uint8_t)0);
   } else {
-    switch_1_set(true);
-    switch_1.send(RAD::State, true);
+    switch_1_set(255);
+    switch_1.send(RAD::State, (uint8_t)255);
   }
 }
 
 
-bool switch_1_on_set(bool on) {
+bool switch_1_on_set(uint8_t value) {
   Serial.print("switch_1_on_set(): ");
-  switch_1_set(on);
+  switch_1_set(value);
   return true;
 }
 
@@ -91,12 +95,12 @@ void setup() {
   Serial.println("Starting...");
 
   // We start by connecting to a WiFi network
-  WiFi.begin(ssid, pass);
+  WiFi.begin(WIFI_SSID, WIFI_PASS);
 
   Serial.println();
   Serial.println();
   Serial.print("Connecting to ");
-  Serial.println(ssid);
+  Serial.println(WIFI_SSID);
 
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
@@ -108,11 +112,11 @@ void setup() {
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
 
-  // Create the devices here
-  rad.add(&switch_1);
+  // Setup the features here
+  server.add(&switch_1);
   switch_1.callback(RAD::Set, switch_1_on_set);
   switch_1.callback(RAD::Get, switch_1_on_get);
-  rad.begin();
+  server.begin();
 
   // Setup the momentary push button pin
   pinMode(BUTTON_PIN, INPUT);
@@ -121,7 +125,7 @@ void setup() {
 
 
 void loop() {
-  rad.update();
+  server.update();
 
   // Handle button presses
   switch(cmd) {

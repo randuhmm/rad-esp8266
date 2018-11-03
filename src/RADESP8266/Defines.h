@@ -2,6 +2,7 @@
 #pragma once
 
 #define MAX_CALLBACK_SIZE 255
+#define MAX_SLAVE_DATA_SIZE 255
 #define RAD_MIN_TIMEOUT 90
 #define RAD_MIN_WRITE_INTERVAL 60
 
@@ -23,3 +24,5 @@
 #define HEADER_CALLBACK  "CALLBACK"
 #define HEADER_NT        "NT"
 #define HEADER_TIMEOUT   "TIMEOUT"
+
+#define RAD_DEFAULT_SLAVE_ADDRESS 0x10
