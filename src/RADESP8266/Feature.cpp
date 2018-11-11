@@ -22,11 +22,7 @@ Feature::Feature(FeatureType type, const char* id, const char* name) {
 void Feature::enableSlave(uint8_t id, uint8_t address) {
   _isSlave = true;
   _slaveId = id;
-  if(address == NULL) {
-    _slaveAddress = RAD_DEFAULT_SLAVE_ADDRESS;
-  } else {
-    _slaveAddress = address;
-  }
+  _slaveAddress = address;
 }
 
 

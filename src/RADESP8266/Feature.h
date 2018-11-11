@@ -68,7 +68,7 @@ namespace RAD {
       void add(Subscription* subscription);
       void remove(Subscription* subscription);
 
-      void enableSlave(uint8_t id, uint8_t address = NULL);
+      void enableSlave(uint8_t id, uint8_t address);
       bool sendToSlave(CommandType command_type, Payload* payload, Payload* response);
   };
 
