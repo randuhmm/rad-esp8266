@@ -20,5 +20,6 @@
 #include "RADESP8266/ESP8266Server.h"
 #include "RADESP8266/Subscription.h"
 #include "RADESP8266/Feature.h"
+#include "RADESP8266/FeatureSlave.h"
 
 #endif // __RADESP8266_H__
